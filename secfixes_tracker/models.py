@@ -25,6 +25,16 @@ class Package(db.Model):
     package_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
     package_name = db.Column(db.Text)
 
+    @classmethod
+    def find_or_create(cls, package_name: str):
+        pkg = cls.query.filter_by(package_name=package_name).first()
+
+        if not pkg:
+            pkg = cls()
+            pkg.package_name = package_name
+
+        return pkg
+
 
 class PackageVersion(db.Model):
     package_version_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
@@ -32,6 +42,18 @@ class PackageVersion(db.Model):
     version = db.Column(db.String(80))
     package = db.relationship('Package', backref='versions')
     repo = db.Column(db.String(80))
+
+    @classmethod
+    def find_or_create(cls, package: Package, version: str, repo: str):
+        pkgver = cls.query.filter_by(package_id=package.package_id, version=version, repo=repo).first()
+
+        if not pkgver:
+            pkgver = cls()
+            pkgver.package_id = package.package_id
+            pkgver.version = version
+            pkgver.repo = repo
+
+        return pkgver
 
 
 class VulnerabilityState(db.Model):
@@ -41,3 +63,15 @@ class VulnerabilityState(db.Model):
     fixed = db.Column(db.Boolean)
     vuln = db.relationship('Vulnerability', backref='states')
     package_version = db.relationship('PackageVersion', backref='states')
+
+    @classmethod
+    def find_or_create(cls, package_version: PackageVersion, vuln: Vulnerability):
+        state = cls.query.filter_by(package_version_id=package_version.package_version_id,
+                                    vuln_id=vuln.vuln_id).first()
+
+        if not state:
+            state = cls()
+            state.package_version_id = package_version.package_version_id
+            state.vuln_id = vuln.vuln_id
+
+        return state
