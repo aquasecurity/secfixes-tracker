@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+
+  <body>
+    <header>
+      <img id="logo" src="/static/alpinelinux-logo.svg" alt="Alpine Linux">
+    </header>
+
+    {% block body %}{% endblock %}
+  </body>
+</html>

@@ -1,0 +1,30 @@
+#logo {
+  width: 225px;
+}
+
+header {
+  border-bottom: 1px #999 solid;
+}
+
+.flex-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.flex-term {
+  flex: 1;
+  max-width: 15em;
+}
+
+.flex-definition {
+  flex: 2;
+}
+
+table {
+  width: 100%;
+}

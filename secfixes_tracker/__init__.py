@@ -12,3 +12,4 @@ db = SQLAlchemy(app)
 
 from . import models
 from . import importers
+from . import views

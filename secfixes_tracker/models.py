@@ -13,6 +13,13 @@ class Vulnerability(db.Model):
     cvss3_score = db.Column(db.Numeric)
     cvss3_vector = db.Column(db.String(80))
 
+    def to_nvd_severity(self):
+        if self.cvss3_score > 8.0:
+            return 'high'
+        if self.cvss3_score > 4.0:
+            return 'medium'
+        return 'low'
+
 
 class Package(db.Model):
     package_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
@@ -24,6 +31,7 @@ class PackageVersion(db.Model):
     package_id = db.Column(db.Integer, db.ForeignKey('package.package_id'), nullable=False, index=True)
     version = db.Column(db.String(80))
     package = db.relationship('Package', backref='versions')
+    repo = db.Column(db.String(80))
 
 
 class VulnerabilityState(db.Model):

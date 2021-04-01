@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block body %}
+
+<h1>{{ vuln.cve_id }}</h1>
+
+<div class="flex-table">
+  <div class="flex-row">
+    <div class="flex-term">Name</div>
+    <div class="flex-definition">{{ vuln.cve_id }}</div>
+  </div>
+
+  <div class="flex-row">
+    <div class="flex-term">Description</div>
+    <div class="flex-definition">{{ vuln.description }}</div>
+  </div>
+
+  <div class="flex-row">
+    <div class="flex-term">NVD Severity</div>
+    <div class="flex-definition">{{ vuln.to_nvd_severity() }}</div>
+  </div>
+
+  <div class="flex-row">
+    <div class="flex-term">Other trackers</div>
+    <div class="flex-definition">
+      <a href="https://cve.mitre.org/cve/cvename.cgi?name={{ vuln.cve_id }}">CVE</a>,
+      <a href="https://nvd.nist.gov/vuln/detail/{{ vuln.cve_id }}">NVD</a>,
+      <a href="https://www.kb.cert.org/vuls/byid?searchview=&query={{ vuln.cve_id }}">CERT</a>,
+      <a href="https://security-tracker.debian.org/tracker/{{ vuln.cve_id }}">Debian</a>,
+      <a href="https://bugzilla.redhat.com/show_bug.cgi?id={{ vuln.cve_id }}">Red Hat</a>,
+      <a href="https://people.canonical.com/~ubuntu-security/cve/{{ vuln.cve_id }}">Ubuntu</a>,
+      <a href="https://bugs.gentoo.org/show_bug.cgi?id={{ vuln.cve_id }}">Gentoo</a>,
+      <a href="https://bugzilla.suse.com/show_bug.cgi?id={{ vuln.cve_id }}">SUSE (Bugzilla)</a>,
+      <a href="https://www.suse.com/security/cve/{{ vuln.cve_id }}/">SUSE (CVE)</a>,
+      <a href="https://advisories.mageia.org/{{ vuln.cve_id }}.html">Mageia</a>
+    </div>
+  </div>
+
+  <div class="flex-row">
+    <div class="flex-term">Mailing lists</div>
+    <div class="flex-definition">
+      <a href="https://marc.info/?l=oss-security&s={{ vuln.cve_id }}">oss-security</a>,
+      <a href="https://marc.info/?l=full-disclosure&s={{ vuln.cve_id }}">full-disclosure</a>,
+      <a href="https://marc.info/?l=bugtraq&s={{ vuln.cve_id }}">bugtraq</a>
+    </div>
+  </div>
+
+  <div class="flex-row">
+    <div class="flex-term">Exploits</div>
+    <div class="flex-definition">
+      <a href="https://www.exploit-db.com/search/?action=search&cve={{ vuln.cve_id }}">Exploit DB</a>,
+      <a href="https://www.rapid7.com/db/search?q={{ vuln.cve_id }}">Metasploit</a>
+    </div>
+  </div>
+
+  <div class="flex-row">
+    <div class="flex-term">Forges</div>
+    <div class="flex-definition">
+      GitHub <a href='https://github.com/search?type=Code&q="{{ vuln.cve_id }}"'>code</a>,
+      <a href='https://github.com/search?type=Issues&q="{{ vuln.cve_id }}"'>issues</a>
+    </div>
+  </div>
+</div>
+
+<h2>Vulnerable and fixed packages</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Source package</th>
+      <th>Branch</th>
+      <th>Version</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for state in vuln.states %}
+    <tr>
+      <td>{{ state.package_version.package.name }}</td>
+      <td>{{ state.repo }}</td>
+      <td>{{ state.version }}</td>
+      <td>{{ 'fixed' if state.fixed else 'vulnerable' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
