@@ -76,9 +76,9 @@
   <tbody>
     {% for state in vuln.states %}
     <tr>
-      <td>{{ state.package_version.package.name }}</td>
-      <td>{{ state.repo }}</td>
-      <td>{{ state.version }}</td>
+      <td>{{ state.package_version.package.package_name }}</td>
+      <td>{{ state.package_version.repo }}</td>
+      <td>{{ state.package_version.version }}</td>
       <td>{{ 'fixed' if state.fixed else 'vulnerable' }}</td>
     </tr>
     {% endfor %}

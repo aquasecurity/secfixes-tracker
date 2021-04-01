@@ -7,7 +7,7 @@ import requests
 
 from pprint import pprint
 from . import app, db
-from .models import Vulnerability
+from .models import Vulnerability, Package, PackageVersion, VulnerabilityState
 
 
 @app.cli.command('import-nvd', help='Import a NVD feed.')
@@ -69,3 +69,43 @@ def process_nvd_cve_item(item: dict):
 
     db.session.add(vuln)
     db.session.commit()
+
+
+@app.cli.command('import-secfixes')
+def import_secfixes():
+    for repo, uri in app.config.get('SECFIXES_REPOSITORIES', {}).items():
+        import_secfixes_feed(repo, uri)
+
+
+def import_secfixes_feed(repo: str, uri: str):
+    print(f'I: [{repo}] Downloading {uri}')
+
+    r = requests.get(uri)
+    data = r.json()
+
+    packages = data.get('packages', [])
+
+    for package in packages:
+        import_secfixes_package(repo, package['pkg'])
+
+
+def import_secfixes_package(repo: str, package: dict):
+    pkg = Package.find_or_create(package['name'])
+    db.session.add(pkg)
+
+    secfixes = package.get('secfixes', {})
+    for ver, fixes in secfixes.items():
+        pkgver = PackageVersion.find_or_create(pkg, ver, repo)
+        db.session.add(pkgver)
+        db.session.commit()
+
+        for fix in fixes:
+            vuln = Vulnerability.find_or_create(fix)
+            db.session.add(vuln)
+            db.session.commit()
+
+            state = VulnerabilityState.find_or_create(pkgver, vuln)
+            state.fixed = True
+
+            db.session.add(state)
+            db.session.commit()

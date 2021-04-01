@@ -20,6 +20,16 @@ class Vulnerability(db.Model):
             return 'medium'
         return 'low'
 
+    @classmethod
+    def find_or_create(cls, cve_id: str):
+        vuln = cls.query.filter_by(cve_id=cve_id).first()
+
+        if not vuln:
+            vuln = cls()
+            vuln.cve_id = cve_id
+
+        return vuln
+
 
 class Package(db.Model):
     package_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
