@@ -71,7 +71,7 @@ def process_nvd_cve_item(item: dict):
     db.session.commit()
 
 
-@app.cli.command('import-secfixes')
+@app.cli.command('import-secfixes', help='Import secfixes feeds.')
 def import_secfixes():
     for repo, uri in app.config.get('SECFIXES_REPOSITORIES', {}).items():
         import_secfixes_feed(repo, uri)
