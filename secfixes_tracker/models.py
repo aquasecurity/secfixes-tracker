@@ -85,3 +85,24 @@ class VulnerabilityState(db.Model):
             state.vuln_id = vuln.vuln_id
 
         return state
+
+
+class CPEMatch(db.Model):
+    cpe_match_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
+    package_id = db.Column(db.Integer, db.ForeignKey('package.package_id'), nullable=False, index=True)
+    maximum_version = db.Column(db.String(80))
+    vuln = db.relationship('Vulnerability', backref='cpe_matches')
+    package = db.relationship('Package', backref='cpe_matches')
+
+    @classmethod
+    def find_or_create(cls, package: Package, vuln: Vulnerability, maximum_version: str):
+        match = cls.query.filter_by(package_id=package.package_id, vuln_id=vuln.vuln_id).first()
+
+        if not match:
+            match = cls()
+            match.package_id = package.package_id
+            match.vuln_id = vuln.vuln_id
+            match.maximum_version = maximum_version
+
+        return match
