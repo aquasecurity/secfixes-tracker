@@ -92,6 +92,7 @@ class CPEMatch(db.Model):
     vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
     package_id = db.Column(db.Integer, db.ForeignKey('package.package_id'), nullable=False, index=True)
     maximum_version = db.Column(db.String(80))
+    vulnerable = db.Column(db.Boolean)
     vuln = db.relationship('Vulnerability', backref='cpe_matches')
     package = db.relationship('Package', backref='cpe_matches')
 
