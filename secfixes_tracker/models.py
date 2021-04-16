@@ -13,6 +13,9 @@ class Vulnerability(db.Model):
     cvss3_score = db.Column(db.Numeric)
     cvss3_vector = db.Column(db.String(80))
 
+    def __repr__(self):
+        return f'<Vulnerability {self.cve_id}>'
+
     def to_nvd_severity(self):
         if self.cvss3_score > 8.0:
             return 'high'
@@ -35,6 +38,9 @@ class Package(db.Model):
     package_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
     package_name = db.Column(db.Text)
 
+    def __repr__(self):
+        return f'<Package {self.package_name}>'
+
     @classmethod
     def find_or_create(cls, package_name: str):
         pkg = cls.query.filter_by(package_name=package_name).first()
@@ -52,6 +58,9 @@ class PackageVersion(db.Model):
     version = db.Column(db.String(80))
     package = db.relationship('Package', backref='versions')
     repo = db.Column(db.String(80))
+
+    def __repr__(self):
+        return f'<PackageVersion {self.package.package_name}-{self.version}>'
 
     @classmethod
     def find_or_create(cls, package: Package, version: str, repo: str):
@@ -95,6 +104,10 @@ class CPEMatch(db.Model):
     vulnerable = db.Column(db.Boolean)
     vuln = db.relationship('Vulnerability', backref='cpe_matches')
     package = db.relationship('Package', backref='cpe_matches')
+
+    def __repr__(self):
+        ver = self.maximum_version if self.maximum_version else '*'
+        return f'<CPEMatch cpe:2.3:*:{self.package.package_name}:{ver}:*:*:*:*:*:*:*:*:*>'
 
     @classmethod
     def find_or_create(cls, package: Package, vuln: Vulnerability, maximum_version: str, vulnerable: bool):
