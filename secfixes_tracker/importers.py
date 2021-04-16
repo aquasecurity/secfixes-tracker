@@ -10,7 +10,7 @@ import tempfile
 from io import TextIOWrapper
 from pprint import pprint
 from . import app, db
-from .models import Vulnerability, Package, PackageVersion, VulnerabilityState
+from .models import Vulnerability, Package, PackageVersion, VulnerabilityState, CPEMatch
 
 
 @app.cli.command('import-nvd', help='Import a NVD feed.')
@@ -61,16 +61,53 @@ def process_nvd_cve_item(item: dict):
     cvss3_score = impact.get('baseScore', None)
     cvss3_vector = impact.get('vectorString', None)
 
-    vuln = Vulnerability.query.filter_by(cve_id=cve_id).first()
-    if not vuln:
-        vuln = Vulnerability()
-
-    vuln.cve_id = cve_id
+    vuln = Vulnerability.find_or_create(cve_id)
     vuln.description = cve_description_text
     vuln.cvss3_score = cvss3_score
     vuln.cvss3_vector = cvss3_vector
 
     db.session.add(vuln)
+    db.session.commit()
+
+    if 'configurations' in item:
+        process_nvd_cve_configurations(vuln, item['configurations'])
+
+
+def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
+    if 'nodes' not in configuration or not configuration['nodes']:
+        return
+
+    nodes = configuration['nodes']
+    if not nodes or 'cpe_match' not in nodes[0]:
+        return
+
+    cpe_match = nodes[0]['cpe_match']
+
+    for match in cpe_match:
+        if 'cpe23Uri' not in match:
+            continue
+
+        # if vulnerable is not specified, assume True.  maintainer can override
+        # by adding a secfixes-override entry in their APKBUILD.
+        cpe_uri = match.get('cpe23Uri')
+        vulnerable = match.get('vulnerable', True)
+
+        cpe_parts = cpe_uri.split(':')[3:6]
+
+        # TODO: implement source_pkgname overrides in app.config
+        source_pkgname = cpe_parts[1]
+        source_version = cpe_parts[2] if cpe_parts[2] != '*' else None
+
+        process_nvd_cve_configuration_item(vuln, source_pkgname, source_version, vulnerable)
+
+
+def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str, source_version: str, vulnerable: bool):
+    pkg = Package.find_or_create(source_pkgname)
+    db.session.add(pkg)
+    db.session.commit()
+
+    cm = CPEMatch.find_or_create(pkg, vuln, source_version, vulnerable)
+    db.session.add(cm)
     db.session.commit()
 
 
