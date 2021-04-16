@@ -3,8 +3,11 @@ import json
 import gzip
 import uuid
 import requests
+import tarfile
+import tempfile
 
 
+from io import TextIOWrapper
 from pprint import pprint
 from . import app, db
 from .models import Vulnerability, Package, PackageVersion, VulnerabilityState
@@ -109,3 +112,54 @@ def import_secfixes_package(repo: str, package: dict):
 
             db.session.add(state)
             db.session.commit()
+
+
+@app.cli.command('import-apkindex', help='Import APK repository indices.')
+def import_apkindex():
+    for repo, uri in app.config.get('APKINDEX_REPOSITORIES', {}).items():
+        import_apkindex_repo(repo, uri)
+
+
+def import_apkindex_repo(repo: str, uri: str):
+    print(f'I: [{repo}] Downloading {uri}')
+
+    r = requests.get(uri)
+
+    with tempfile.TemporaryFile() as f:
+        f.write(r.content)
+        f.seek(0)
+
+        import_apkindex_payload(repo, f)
+
+
+def import_apkindex_pkg(pkg: dict, repo: str):
+    p = Package.find_or_create(pkg['o'])
+    db.session.add(p)
+    db.session.commit()
+
+    pkgver = PackageVersion.find_or_create(p, pkg['V'], repo)
+    db.session.add(pkgver)
+    db.session.commit()
+
+
+def import_apkindex_idx(index_data, repo: str):
+    current_pkg = {}
+
+    for line in index_data:
+        data = line.strip().split(':', 1)
+
+        if len(data) == 1:
+            import_apkindex_pkg(current_pkg, repo)
+            current_pkg = {}
+        else:
+            current_pkg[data[0]] = data[1]
+
+
+def import_apkindex_payload(repo: str, file):
+    print(f'I: [{repo}] Processing APKINDEX')
+
+    with tarfile.open(mode='r', fileobj=file, debug=3) as tf:
+        for tarentry in tf.getmembers():
+            if tarentry.name == 'APKINDEX':
+                data = tf.extractfile(tarentry)
+                import_apkindex_idx(TextIOWrapper(data), repo)
