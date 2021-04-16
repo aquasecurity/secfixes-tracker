@@ -97,7 +97,7 @@ class CPEMatch(db.Model):
     package = db.relationship('Package', backref='cpe_matches')
 
     @classmethod
-    def find_or_create(cls, package: Package, vuln: Vulnerability, maximum_version: str):
+    def find_or_create(cls, package: Package, vuln: Vulnerability, maximum_version: str, vulnerable: bool):
         match = cls.query.filter_by(package_id=package.package_id, vuln_id=vuln.vuln_id).first()
 
         if not match:
@@ -105,5 +105,6 @@ class CPEMatch(db.Model):
             match.package_id = package.package_id
             match.vuln_id = vuln.vuln_id
             match.maximum_version = maximum_version
+            match.vulnerable = vulnerable
 
         return match
