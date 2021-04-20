@@ -18,6 +18,8 @@ class Vulnerability(db.Model):
         return f'<Vulnerability {self.cve_id}>'
 
     def to_nvd_severity(self):
+        if not self.cvss3_score:
+            return 'unknown'
         if self.cvss3_score > 8.0:
             return 'high'
         if self.cvss3_score > 4.0:
@@ -59,6 +61,7 @@ class PackageVersion(db.Model):
     version = db.Column(db.String(80))
     package = db.relationship('Package', backref='versions')
     repo = db.Column(db.String(80), index=True)
+    published = db.Column(db.Boolean, index=True)
 
     def __repr__(self):
         return f'<PackageVersion {self.package.package_name}-{self.version}>'
@@ -134,4 +137,4 @@ class CPEMatch(db.Model):
         pv = APKVersion(package_version.version)
         mv = APKVersion(self.maximum_version)
 
-        return pv <= mv
+        return pv == mv

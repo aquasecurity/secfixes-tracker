@@ -11,6 +11,7 @@ from io import TextIOWrapper
 from pprint import pprint
 from . import app, db
 from .models import Vulnerability, Package, PackageVersion, VulnerabilityState, CPEMatch
+from .version import APKVersion
 
 
 @app.cli.command('import-nvd', help='Import a NVD feed.')
@@ -160,6 +161,7 @@ def import_secfixes_package(repo: str, package: dict):
         db.session.commit()
 
         for fix in fixes:
+            fix = fix.split()[0]
             vuln = Vulnerability.find_or_create(fix)
             db.session.add(vuln)
             db.session.commit()
@@ -195,6 +197,7 @@ def import_apkindex_pkg(pkg: dict, repo: str):
     db.session.commit()
 
     pkgver = PackageVersion.find_or_create(p, pkg['V'], repo)
+    pkgver.published = True
     db.session.add(pkgver)
     db.session.commit()
 
@@ -220,3 +223,57 @@ def import_apkindex_payload(repo: str, file):
             if tarentry.name == 'APKINDEX':
                 data = tf.extractfile(tarentry)
                 import_apkindex_idx(TextIOWrapper(data), repo)
+
+
+@app.cli.command('update-states', help='Update the package vulnerability states.')
+def update_states():
+    for repo, _ in app.config.get('SECFIXES_REPOSITORIES', {}).items():
+        update_states_for_repo_tag(repo)
+
+
+def update_states_for_repo_tag(repo: str):
+    print(f'I: [{repo}] Processing updates.')
+
+    for pkgver in PackageVersion.query.filter_by(repo=repo, published=True):
+        update_states_for_pkgver(pkgver)
+
+
+def update_states_for_pkgver(pkgver: PackageVersion):
+    pkg = pkgver.package
+
+    print(f'I: Considering {pkgver} ({pkg})')
+
+    # walk the CPE matches to find associated vulnerabilities
+    for cpe_match in pkg.cpe_matches:
+        update_states_if_pkgver_matches_cpe_match(pkgver, cpe_match)
+
+
+def update_states_if_pkgver_matches_cpe_match(pkgver: PackageVersion, cpe_match: CPEMatch):
+    vuln = cpe_match.vuln
+    pv = APKVersion(pkgver.version)
+
+    print(f'I: Evaluating {cpe_match} for {vuln} against {pkgver}')
+
+    if not cpe_match.matches_version(pkgver):
+        print(f'I: CPE match does not match {pkgver}')
+        return
+
+    # Look for a fixed VulnerabilityState that is older than pkgver.
+    # XXX: We need to find the lowest fixed version ideally.
+    fixed_state = VulnerabilityState.query.filter_by(vuln_id=vuln.vuln_id, fixed=True).first()
+    fixed = False
+    if not fixed_state:
+        print(f'I: No fix recorded against any {pkgver.package} version for {vuln}')
+    else:
+        print(f'I: Fix recorded in {fixed_state.package_version} for {vuln}')
+
+        fv = fixed_state.package_version
+        fixed = pv >= fv
+
+    vuln_state = VulnerabilityState.find_or_create(pkgver, vuln)
+    if vuln_state.fixed:
+        return
+
+    vuln_state.fixed = fixed
+    db.session.add(vuln_state)
+    db.session.commit()
