@@ -12,11 +12,11 @@ libapk = cdll.LoadLibrary('libapk.so.3.12.0')
 
 
 def do_compare(ver1: str, ver2: str, ops: int):
-    return (libapk.apk_version_compare(ver1, ver2) & ops) == ops
+    return (libapk.apk_version_compare(ver1.encode('ascii'), ver2.encode('ascii')) & ops) == ops
 
 
 def do_compare_fuzzy(ver1: str, ver2: str, ops: int):
-    return (libapk.apk_version_compare(ver1, ver2) & ops) != 0
+    return (libapk.apk_version_compare(ver1.encode('ascii'), ver2.encode('ascii')) & ops) != 0
 
 
 class APKVersion:
@@ -30,7 +30,7 @@ class APKVersion:
         return do_compare(self.version, other.version, VersionEqual)
 
     def __ne__(self, other):
-        return do_compare(self.version, other.version, VersionEqual)
+        return not do_compare(self.version, other.version, VersionEqual)
 
     def __lt__(self, other):
         return do_compare(self.version, other.version, VersionLess)
