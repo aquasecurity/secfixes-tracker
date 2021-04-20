@@ -15,7 +15,7 @@
 {% for pkgver in pkgvers %}
 {% for vuln in pkgver.vulnerabilities() %}
     <tr>
-      <td>{{ pkgver.package.package_name }}</td>
+      <td><a href="{{ url_for('show_package', package=pkgver.package.package_name) }}">{{ pkgver.package.package_name }}</a></td>
       <td><a href="{{ url_for('show_vulnerability', cve_id=vuln.cve_id) }}">{{ vuln.cve_id }}</a></td>
       <td>{{ vuln.to_nvd_severity() }}</td>
     </tr>

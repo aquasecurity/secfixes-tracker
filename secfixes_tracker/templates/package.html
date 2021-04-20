@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h1>Information about source package {{ package.package_name }}</h1>
+
+<h2>Available versions</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Branch</th>
+      <th>Version</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for pkgver in package.published_versions() %}
+    <tr>
+      <td>{{ pkgver.repo }}</td>
+      <td>{{ pkgver.version }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Unresolved CVEs</h2>
+
+<ul>
+{% for vuln in package.unresolved_vulns() %}
+  <li><a href="{{ url_for('show_vulnerability', cve_id=vuln.cve_id) }}">{{ vuln.cve_id }}</a></li>
+{% endfor %}
+</ul>
+
+<h2>Resolved CVEs</h2>
+
+<ul>
+{% for vuln in package.resolved_vulns() %}
+  <li><a href="{{ url_for('show_vulnerability', cve_id=vuln.cve_id) }}">{{ vuln.cve_id }}</a></li>
+{% endfor %}
+</ul>
+
+{% endblock %}

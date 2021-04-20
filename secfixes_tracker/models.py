@@ -54,6 +54,15 @@ class Package(db.Model):
 
         return pkg
 
+    def published_versions(self):
+        return [pkgver for pkgver in self.versions if pkgver.published]
+
+    def resolved_vulns(self):
+        return [state.vuln for ver in self.versions for state in ver.states if state.fixed]
+
+    def unresolved_vulns(self):
+        return [state.vuln for ver in self.versions for state in ver.states if not state.fixed]
+
 
 class PackageVersion(db.Model):
     package_version_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)

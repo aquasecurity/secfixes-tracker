@@ -76,8 +76,8 @@
   <tbody>
     {% for state in vuln.states %}
     <tr>
-      <td>{{ state.package_version.package.package_name }}</td>
-      <td>{{ state.package_version.repo }}</td>
+      <td><a href="{{ url_for('show_package', package=state.package_version.package.package_name) }}">{{ state.package_version.package.package_name }}</a></td>
+      <td><a href="{{ url_for('show_branch', branch=state.package_version.repo) }}">{{ state.package_version.repo }}</a></td>
       <td>{{ state.package_version.version }}</td>
       <td>{{ 'fixed' if state.fixed else 'possibly vulnerable' }}</td>
     </tr>

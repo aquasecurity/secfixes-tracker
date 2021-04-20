@@ -2,7 +2,7 @@ from flask import render_template, request, jsonify
 
 
 from . import app, db
-from .models import Vulnerability, PackageVersion
+from .models import Vulnerability, PackageVersion, Package
 
 
 @app.route('/')
@@ -22,3 +22,9 @@ def show_branch():
 def show_vulnerability(cve_id):
     v = Vulnerability.query.filter_by(cve_id=cve_id).first_or_404()
     return render_template('vuln.html', vuln=v)
+
+
+@app.route('/srcpkg/<package>')
+def show_package(package):
+    p = Package.query.filter_by(package_name=package).first_or_404()
+    return render_template('package.html', package=p)
