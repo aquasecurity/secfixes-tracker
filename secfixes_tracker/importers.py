@@ -73,7 +73,21 @@ def process_nvd_cve_item(item: dict):
         process_nvd_cve_configurations(vuln, item['configurations'])
 
 
+rewrite_python = lambda x: 'py3-' + x.replace('_', '-').lower()
+rewrite_ruby = lambda x: 'ruby-' + x.replace('_', '-').lower()
+rewrite_perl = lambda x: 'perl-' + x.replace('_', '-').replace('::', '-').lower()
+
+
+REWRITERS = {
+    'python': rewrite_python,
+    'ruby': rewrite_ruby,
+    'perl': rewrite_perl,
+}
+
+
 def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
+    global REWRITERS
+
     if 'nodes' not in configuration or not configuration['nodes']:
         return
 
@@ -93,9 +107,15 @@ def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
         vulnerable = match.get('vulnerable', True)
 
         cpe_parts = cpe_uri.split(':')[3:6]
+        cpe_language = cpe_uri.split(':')[10].lower()
+
+        rewriter = REWRITERS.get(cpe_language, None)
 
         # TODO: implement source_pkgname overrides in app.config
         source_pkgname = cpe_parts[1]
+        if rewriter:
+            source_pkgname = rewriter(source_pkgname)
+
         source_version = cpe_parts[2] if cpe_parts[2] != '*' else None
 
         process_nvd_cve_configuration_item(vuln, source_pkgname, source_version, vulnerable)
