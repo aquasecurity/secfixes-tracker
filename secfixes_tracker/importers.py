@@ -77,12 +77,14 @@ def process_nvd_cve_item(item: dict):
 rewrite_python = lambda x: 'py3-' + x.replace('_', '-').lower()
 rewrite_ruby = lambda x: 'ruby-' + x.replace('_', '-').lower()
 rewrite_perl = lambda x: 'perl-' + x.replace('_', '-').replace('::', '-').lower()
+rewrite_lua = lambda x: 'lua-' + x.replace('_', '-').lower()
 
 
 REWRITERS = {
     'python': rewrite_python,
     'ruby': rewrite_ruby,
     'perl': rewrite_perl,
+    'lua': rewrite_lua,
 }
 
 
