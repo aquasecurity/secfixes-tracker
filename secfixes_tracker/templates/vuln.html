@@ -79,7 +79,7 @@
       <td>{{ state.package_version.package.package_name }}</td>
       <td>{{ state.package_version.repo }}</td>
       <td>{{ state.package_version.version }}</td>
-      <td>{{ 'fixed' if state.fixed else 'vulnerable' }}</td>
+      <td>{{ 'fixed' if state.fixed else 'possibly vulnerable' }}</td>
     </tr>
     {% endfor %}
   </tbody>

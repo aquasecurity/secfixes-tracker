@@ -13,4 +13,11 @@ tracker, please make sure that your APKBUILD has secfixes data in it.  Once the
 corrected secfixes data is published, it should take less than 24 hours for the
 tracker to update.  If there are still problems, please ask in <code>#alpine-devel</code>
 on IRC.</p>
+
+<ul>
+{% for branch, _ in config['SECFIXES_REPOSITORIES'].items() %}
+<li><a href="{{ url_for('show_branch', branch=branch) }}">Vulnerable packages in {{ branch }}</a></li>
+{% endfor %}
+</ul>
+
 {% endblock %}

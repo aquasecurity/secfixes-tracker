@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h1>Potentially vulnerable packages in {{ branch }}</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Source package</th>
+      <th>Vulnerability</th>
+      <th>NVD severity</th>
+    </tr>
+  </thead>
+  <tbody>
+{% for pkgver in pkgvers %}
+{% for vuln in pkgver.vulnerabilities() %}
+    <tr>
+      <td>{{ pkgver.package.package_name }}</td>
+      <td><a href="{{ url_for('show_vulnerability', cve_id=vuln.cve_id) }}">{{ vuln.cve_id }}</a></td>
+      <td>{{ vuln.to_nvd_severity() }}</td>
+    </tr>
+{% endfor %}
+{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

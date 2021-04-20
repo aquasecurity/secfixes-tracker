@@ -78,6 +78,12 @@ class PackageVersion(db.Model):
 
         return pkgver
 
+    def is_vulnerable(self):
+        return False in [state.fixed for state in self.states]
+
+    def vulnerabilities(self):
+        return [state.vuln for state in self.states if not state.fixed]
+
 
 class VulnerabilityState(db.Model):
     vuln_state_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
