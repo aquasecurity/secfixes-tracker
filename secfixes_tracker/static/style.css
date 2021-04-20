@@ -1,3 +1,21 @@
+body {
+  width: 90%;
+  max-width: 1200px;
+  margin: 1em auto;
+  font-family: sans-serif;
+  font-size: 14px;
+  color: #333;
+}
+
+a {
+  color: #239;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
 #logo {
   width: 225px;
 }
@@ -9,6 +27,7 @@ header {
 .flex-table {
   display: flex;
   flex-direction: column;
+  border: 1px #999 solid;
 }
 
 .flex-row {
@@ -19,12 +38,31 @@ header {
 .flex-term {
   flex: 1;
   max-width: 15em;
+  padding-left: 0.5em;
+  padding-top: 0.25em;
+  padding-bottom: 0.25em;
 }
 
 .flex-definition {
   flex: 2;
+  border-left: 1px #999 solid;
+  padding-top: 0.25em;
+  padding-bottom: 0.25em;
+  padding-left: 0.5em;
 }
 
 table {
   width: 100%;
+  border: 1px #999 solid;
+}
+
+table th {
+  text-align: left;
+}
+
+footer {
+  margin-top: 1em;
+  padding-top: 0.5em;
+  border-top: 1px #999 solid;
+  text-align: center;
 }
