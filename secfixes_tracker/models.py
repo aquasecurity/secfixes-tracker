@@ -1,4 +1,5 @@
 from . import app, db
+from .version import APKVersion
 
 
 @app.cli.command('init-db', help='Initializes the database.')
@@ -121,3 +122,16 @@ class CPEMatch(db.Model):
             match.vulnerable = vulnerable
 
         return match
+
+    def matches_version(self, package_version: PackageVersion) -> bool:
+        """
+        This returns whether a CPEMatch matches a given PackageVersion.
+        This does not mean that the package itself is necessarily vulnerable.
+        """
+        if not self.maximum_version:
+            return True
+
+        pv = APKVersion(package_version.version)
+        mv = APKVersion(self.maximum_version)
+
+        return pv <= mv
