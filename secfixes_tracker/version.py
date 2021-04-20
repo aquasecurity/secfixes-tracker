@@ -23,6 +23,9 @@ class APKVersion:
     def __init__(self, version: str):
         self.version = version
 
+    def __repr__(self):
+        return f'<APKVersion {self.version}>'
+
     def __eq__(self, other):
         return do_compare(self.version, other.version, VersionEqual)
 
