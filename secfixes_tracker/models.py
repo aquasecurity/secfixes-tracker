@@ -58,7 +58,7 @@ class PackageVersion(db.Model):
     package_id = db.Column(db.Integer, db.ForeignKey('package.package_id'), nullable=False, index=True)
     version = db.Column(db.String(80))
     package = db.relationship('Package', backref='versions')
-    repo = db.Column(db.String(80))
+    repo = db.Column(db.String(80), index=True)
 
     def __repr__(self):
         return f'<PackageVersion {self.package.package_name}-{self.version}>'
