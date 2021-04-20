@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h1>Security Issue Tracker</h1>
+
+<p>This is a security issue tracker used to monitor security issues that affect the
+Alpine Linux distribution.  It is derived from the <a href="https://cve.mitre.org/">
+CVE dictionary</a>, the <a href="https://nvd.nist.gov">NVD database</a> and Alpine's
+own <a href="https://secdb.alpinelinux.org">security fixes database</a>.</p>
+
+<p>If you are a packager and your package erroneously appears vulnerable on this
+tracker, please make sure that your APKBUILD has secfixes data in it.  Once the
+corrected secfixes data is published, it should take less than 24 hours for the
+tracker to update.  If there are still problems, please ask in <code>#alpine-devel</code>
+on IRC.</p>
+{% endblock %}
