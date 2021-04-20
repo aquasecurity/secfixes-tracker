@@ -51,6 +51,9 @@ Imports the configured secdb feeds.
 
 Imports an NVD feed, such as `2021` or `recent`.
 
+Once the yearly feeds have been imported, you only need to import the `recent` feed
+on a daily basis.
+
 ### `flask update-states`
 
 Updates the various `VulnerabilityState` items based on the current contents of
