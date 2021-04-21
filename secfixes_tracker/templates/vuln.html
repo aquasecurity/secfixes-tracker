@@ -65,6 +65,25 @@
   </div>
 </div>
 
+<h2>References</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>URI</th>
+    </tr>
+  </thead>
+  <tbody>
+{% for ref in vuln.references %}
+    <tr>
+      <td>{{ ref.ref_type }}</td>
+      <td><a href="{{ ref.ref_uri }}" target="_blank">{{ ref.ref_uri }}</a></td>
+    </tr>
+{% endfor %}
+  </tbody>
+</table>
+
 <h2>Vulnerable and fixed packages</h2>
 
 <table>
