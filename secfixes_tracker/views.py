@@ -1,4 +1,5 @@
 from flask import render_template, request, jsonify
+from flask_accept import accept
 
 
 from . import app, db
@@ -6,6 +7,7 @@ from .models import Vulnerability, PackageVersion, Package
 
 
 @app.route('/')
+@accept('text/html')
 def show_index():
     return render_template('index.html')
 
@@ -52,12 +54,28 @@ def show_maintainer_issues():
 
 
 @app.route('/vuln/<cve_id>')
+@accept('text/html')
 def show_vulnerability(cve_id):
     v = Vulnerability.query.filter_by(cve_id=cve_id).first_or_404()
     return render_template('vuln.html', vuln=v)
 
 
+@show_vulnerability.support('application/json')
+@show_vulnerability.support('application/ld+json')
+def show_vulnerability_json_ld(cve_id):
+    v = Vulnerability.query.filter_by(cve_id=cve_id).first_or_404()
+    return jsonify(v.to_json_ld())
+
+
 @app.route('/srcpkg/<package>')
+@accept('text/html')
 def show_package(package):
     p = Package.query.filter_by(package_name=package).first_or_404()
     return render_template('package.html', package=p)
+
+
+@show_package.support('application/json')
+@show_package.support('application/ld+json')
+def show_package_json_ld(package):
+    p = Package.query.filter_by(package_name=package).first_or_404()
+    return jsonify(p.to_json_ld())
