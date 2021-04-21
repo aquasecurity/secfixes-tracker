@@ -2,6 +2,9 @@ from . import app, db
 from .version import APKVersion
 
 
+from flask import request
+
+
 @app.cli.command('init-db', help='Initializes the database.')
 def init_db():
     db.create_all()
@@ -36,6 +39,25 @@ class Vulnerability(db.Model):
 
         return vuln
 
+    @property
+    def json_ld_id(self):
+        return f'https://{request.host}/vuln/{self.cve_id}'
+
+    def to_json_ld(self):
+        return {
+            '@context': f'https://{request.host}/static/context.jsonld',
+            'type': 'Vulnerability',
+            'id': self.json_ld_id,
+            'description': self.description,
+            'cvss3': {
+                 'score': float(self.cvss3_score),
+                 'vector': self.cvss3_vector,
+            },
+            'ref': [ref.to_json_ld() for ref in self.references],
+            'state': [state.to_json_ld() for state in self.states],
+            'cpeMatch': [cpe_match.to_json_ld() for cpe_match in self.cpe_matches],
+        }
+
 
 class VulnerabilityReference(db.Model):
     vuln_ref_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
@@ -58,6 +80,19 @@ class VulnerabilityReference(db.Model):
             ref.ref_uri = ref_uri
 
         return ref
+
+    @property
+    def json_ld_id(self):
+        return f'{self.vuln.json_ld_id}#ref/{self.vuln_ref_id}'
+
+    def to_json_ld(self):
+        return {
+            '@context': f'https://{request.host}/static/context.jsonld',
+            'type': 'Reference',
+            'referenceType': self.ref_type,
+            'id': self.json_ld_id,
+            'rel': self.ref_uri,
+        }
 
 
 class Package(db.Model):
@@ -90,6 +125,19 @@ class Package(db.Model):
     def excluded(self):
         return self.package_name in app.config.get('PACKAGE_EXCLUSIONS', [])
 
+    @property
+    def json_ld_id(self):
+        return f'https://{request.host}/srcpkg/{self.package_name}'
+
+    def to_json_ld(self):
+        return {
+            '@context': f'https://{request.host}/static/context.jsonld',
+            'id': self.json_ld_id,
+            'type': 'Package',
+            'packageVersion': [pkgver.json_ld_id for pkgver in self.versions],
+            'cpeMatch': [match.to_json_ld() for match in self.cpe_matches],
+        }
+
 
 class PackageVersion(db.Model):
     package_version_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
@@ -121,6 +169,21 @@ class PackageVersion(db.Model):
     def vulnerabilities(self):
         return [state.vuln for state in self.states if not state.fixed]
 
+    @property
+    def json_ld_id(self):
+        return f'{self.package.json_ld_id}#version/{self.version}'
+
+    def to_json_ld(self):
+        return {
+            '@context': f'https://{request.host}/static/context.jsonld',
+            'id': self.json_ld_id,
+            'type': 'PackageVersion',
+            'package': self.package.to_json_ld(),
+            'published': self.published,
+            'repo': self.repo,
+            'maintainer': self.maintainer,
+        }
+
 
 class VulnerabilityState(db.Model):
     vuln_state_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
@@ -141,6 +204,20 @@ class VulnerabilityState(db.Model):
             state.vuln_id = vuln.vuln_id
 
         return state
+
+    @property
+    def json_ld_id(self):
+        return f'{self.vuln.json_ld_id}#state/{self.vuln_state_id}'
+
+    def to_json_ld(self):
+        return {
+            '@context': f'https://{request.host}/static/context.jsonld',
+            'id': self.json_ld_id,
+            'type': 'VulnerabilityState',
+            'vuln': self.vuln.json_ld_id,
+            'fixed': self.fixed,
+            'packageVersion': self.package_version.to_json_ld(),
+        }
 
 
 class CPEMatch(db.Model):
@@ -185,3 +262,17 @@ class CPEMatch(db.Model):
         mv = APKVersion(self.maximum_version)
 
         return pv == mv
+
+    @property
+    def json_ld_id(self):
+        return f'{self.vuln.json_ld_id}#cpeMatch/{self.cpe_match_id}'
+
+    def to_json_ld(self):
+        return {
+            '@context': f'https://{request.host}/static/context.jsonld',
+            'id': self.json_ld_id,
+            'type': 'CPEMatch',
+            'vuln': self.vuln.json_ld_id,
+            'package': self.package.json_ld_id,
+            'maximumVersion': self.maximum_version,
+        }
