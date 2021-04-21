@@ -60,6 +60,24 @@ Updates the various `VulnerabilityState` items based on the current contents of
 the secfixes, NVD and apkindex feeds.  This should be run after the above import
 tasks on an hourly basis.
 
+## CPE rewriters
+
+The config allows defining a set of custom rewriters.  These rewriters should be
+defined as `lambda` functions which take a source package name as input.  They are
+matched as either `cpe_vendor:source_pkgname` or `cpe_vendor:*` as a catch all.
+
+For example:
+
+```
+CUSTOM_REWRITERS = {
+    'jenkins:*': lambda x: 'jenkins',
+}
+```
+
+Will define a rewriter which matches any package published by the 'jenkins' CPE
+vendor and outputs 'jenkins' (as all jenkins components are in the `jenkins` source
+package in Alpine).
+
 ## Cron
 
 You'll want to run the import tasks, and then the update-states tasks.  That's all
