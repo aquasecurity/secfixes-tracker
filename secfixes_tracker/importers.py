@@ -10,7 +10,7 @@ import tempfile
 from io import TextIOWrapper
 from pprint import pprint
 from . import app, db
-from .models import Vulnerability, Package, PackageVersion, VulnerabilityState, CPEMatch
+from .models import Vulnerability, Package, PackageVersion, VulnerabilityState, CPEMatch, VulnerabilityReference
 from .version import APKVersion
 
 
@@ -37,6 +37,26 @@ def import_nvd_cve(name: str):
         process_nvd_cve_item(item)
 
     print(f'I: Imported NVD feed successfully.')
+
+
+def process_nvd_cve_reference(vuln: Vulnerability, item: dict):
+    ref_type = item['refsource']
+    ref_tags = item.get('tags', [])
+
+    ref_uri = item.get('url', None)
+    if not ref_uri:
+        return
+
+    if ref_tags:
+        ref_type = ref_tags[0]
+
+    ref = VulnerabilityReference.find_or_create(vuln, ref_type, ref_uri)
+    db.session.add(ref)
+
+
+def process_nvd_cve_references(vuln: Vulnerability, refs: list):
+    [process_nvd_cve_reference(vuln, item) for item in refs]
+    db.session.commit()
 
 
 def process_nvd_cve_item(item: dict):
@@ -72,6 +92,9 @@ def process_nvd_cve_item(item: dict):
 
     if 'configurations' in item:
         process_nvd_cve_configurations(vuln, item['configurations'])
+
+    if 'references' in cve:
+        process_nvd_cve_references(vuln, cve['references']['reference_data'])
 
 
 rewrite_python = lambda x: 'py3-' + x.replace('_', '-').lower()
