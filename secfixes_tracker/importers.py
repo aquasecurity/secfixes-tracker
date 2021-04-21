@@ -224,8 +224,8 @@ def import_apkindex_pkg(pkg: dict, repo: str):
     pkgver = PackageVersion.find_or_create(p, pkg['V'], repo)
     pkgver.published = True
 
-    if 'm' in pkg:
-        pkgver.maintainer = pkg['m']
+    if pkg['o'] == pkg['P']:
+        pkgver.maintainer = pkg.get('m', None)
 
     db.session.add(pkgver)
     db.session.commit()
