@@ -1,0 +1,47 @@
+{
+  "context": {
+     "id": "@id",
+     "type": "@type",
+     "alpine": "https://alpinelinux.org/ns#",
+     "CPEMatch": "alpine:CPEMatch",
+     "Package": "alpine:Package",
+     "PackageVersion": "alpine:PackageVersion",
+     "Vulnerability": "alpine:Vulnerability",
+     "VulnerabilityState": "alpine:VulnerabilityState",
+     "Reference": "alpine:Reference",
+     "package": {
+        "@id": "alpine:package",
+        "@type": "@id"
+     },
+     "packageVersion": {
+        "@id": "alpine:packageVersion",
+        "@type": "@id"
+     },
+     "cpeMatch": {
+        "@id": "alpine:cpeMatch",
+        "@type": "@id"
+     },
+     "vuln": {
+        "@id": "alpine:vuln",
+        "@type": "@id"
+     },
+     "state": {
+        "@id": "alpine:state",
+        "@type": "@id"
+     },
+     "ref": {
+        "@id": "alpine:ref",
+        "@type": "@id"
+     },
+     "rel": "alpine:rel",
+     "referenceType": "alpine:referenceType",
+     "maintainer": "alpine:maintainer",
+     "published": "alpine:published",
+     "repo": "alpine:repo",
+     "fixed": "alpine:fixed",
+     "cvss3": "alpine:cvss3",
+     "score": "alpine:cvss3Score",
+     "vector": "alpine:cvss3Vector",
+     "description": "alpine:description"
+  }
+}
