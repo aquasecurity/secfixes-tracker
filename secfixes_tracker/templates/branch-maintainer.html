@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h1>{{ title }}</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Maintainer</th>
+      <th>Source package</th>
+      <th>Version</th>
+      <th>Vulnerability</th>
+      <th>NVD severity</th>
+    </tr>
+  </thead>
+  <tbody>
+{% for pkgver in pkgvers %}
+{% for vuln in pkgver.vulnerabilities() %}
+    <tr>
+      <td><a href="{{ url_for('show_maintainer_issues', branch=branch, maintainer=pkgver.maintainer) }}">{{ pkgver.maintainer }}</a></td>
+      <td><a href="{{ url_for('show_package', package=pkgver.package.package_name) }}">{{ pkgver.package.package_name }}</a></td>
+      <td>{{ pkgver.version }}</td>
+      <td><a href="{{ url_for('show_vulnerability', cve_id=vuln.cve_id) }}">{{ vuln.cve_id }}</a></td>
+      <td>{{ vuln.to_nvd_severity() }}</td>
+    </tr>
+{% endfor %}
+{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

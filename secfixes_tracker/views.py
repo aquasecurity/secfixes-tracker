@@ -23,6 +23,7 @@ def show_branch():
 def show_orphaned_vulns_for_branch():
     branch = request.args.get('branch')
     pkgvers = PackageVersion.query.filter_by(repo=branch, published=True, maintainer=None).all()
+    pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
     title = f'Potentially vulnerable orphaned packages in {branch}'
     return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
 
@@ -33,6 +34,21 @@ def show_orphaned_for_branch():
     pkgvers = PackageVersion.query.filter_by(repo=branch, published=True, maintainer=None).all()
     title = f'Orphaned packages in {branch}'
     return render_template('branch-orphaned.html', title=title, branch=branch, pkgvers=pkgvers)
+
+
+@app.route('/maintainer-issues')
+def show_maintainer_issues():
+    branch = request.args.get('branch')
+    maint = request.args.get('maintainer', None)
+
+    pkgvers = PackageVersion.query.filter_by(repo=branch, published=True)
+    if maint:
+        pkgvers = pkgvers.filter_by(maintainer=maint)
+    pkgvers = pkgvers.order_by(PackageVersion.maintainer).all()
+    pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
+
+    title = f'Issues by maintainer for {branch}'
+    return render_template('branch-maintainer.html', title=title, branch=branch, pkgvers=pkgvers)
 
 
 @app.route('/vuln/<cve_id>')
