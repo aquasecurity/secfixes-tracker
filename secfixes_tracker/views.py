@@ -79,3 +79,12 @@ def show_package(package):
 def show_package_json_ld(package):
     p = Package.query.filter_by(package_name=package).first_or_404()
     return jsonify(p.to_json_ld())
+
+
+@app.route('/srcpkg/<package>/<version>')
+@accept('application/json')
+@accept('application/ld+json')
+def show_package_version_json_ld(package, version):
+    p = Package.query.filter_by(package_name=package).first_or_404()
+    pv = PackageVersion.query.filter_by(package_id=p.package_id, version=version).first_or_404()
+    return jsonify(pv.to_json_ld())

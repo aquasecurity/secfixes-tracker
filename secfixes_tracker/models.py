@@ -171,7 +171,7 @@ class PackageVersion(db.Model):
 
     @property
     def json_ld_id(self):
-        return f'{self.package.json_ld_id}#version/{self.version}'
+        return f'{self.package.json_ld_id}/{self.version}'
 
     def to_json_ld(self):
         return {
