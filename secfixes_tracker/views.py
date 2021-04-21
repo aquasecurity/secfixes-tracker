@@ -12,35 +12,31 @@ def show_index():
     return render_template('index.html')
 
 
-@app.route('/branch')
-def show_branch():
-    branch = request.args.get('branch')
+@app.route('/branch/<branch>')
+def show_branch(branch):
     pkgvers = PackageVersion.query.filter_by(repo=branch).all()
     pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
     title = f'Potentially vulnerable packages in {branch}'
     return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
 
 
-@app.route('/branch/vuln-orphaned')
-def show_orphaned_vulns_for_branch():
-    branch = request.args.get('branch')
+@app.route('/branch/<branch>/vuln-orphaned')
+def show_orphaned_vulns_for_branch(branch):
     pkgvers = PackageVersion.query.filter_by(repo=branch, published=True, maintainer=None).all()
     pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
     title = f'Potentially vulnerable orphaned packages in {branch}'
     return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
 
 
-@app.route('/branch/orphaned')
-def show_orphaned_for_branch():
-    branch = request.args.get('branch')
+@app.route('/branch/<branch>/orphaned')
+def show_orphaned_for_branch(branch):
     pkgvers = PackageVersion.query.filter_by(repo=branch, published=True, maintainer=None).all()
     title = f'Orphaned packages in {branch}'
     return render_template('branch-orphaned.html', title=title, branch=branch, pkgvers=pkgvers)
 
 
-@app.route('/maintainer-issues')
-def show_maintainer_issues():
-    branch = request.args.get('branch')
+@app.route('/branch/<branch>/maintainer-issues')
+def show_maintainer_issues(branch):
     maint = request.args.get('maintainer', None)
 
     pkgvers = PackageVersion.query.filter_by(repo=branch, published=True)
