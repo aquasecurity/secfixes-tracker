@@ -94,6 +94,7 @@ class PackageVersion(db.Model):
     package = db.relationship('Package', backref='versions')
     repo = db.Column(db.String(80), index=True)
     published = db.Column(db.Boolean, index=True)
+    maintainer = db.Column(db.Text, index=True)
 
     def __repr__(self):
         return f'<PackageVersion {self.package.package_name}-{self.version}>'
