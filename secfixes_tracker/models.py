@@ -182,6 +182,7 @@ class PackageVersion(db.Model):
             'published': self.published,
             'repo': self.repo,
             'maintainer': self.maintainer,
+            'state': [state.to_json_ld() for state in self.states],
         }
 
 
@@ -216,7 +217,7 @@ class VulnerabilityState(db.Model):
             'type': 'VulnerabilityState',
             'vuln': self.vuln.json_ld_id,
             'fixed': self.fixed,
-            'packageVersion': self.package_version.to_json_ld(),
+            'packageVersion': self.package_version.json_ld_id,
         }
 
 
