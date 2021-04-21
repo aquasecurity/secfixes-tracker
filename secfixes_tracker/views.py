@@ -15,7 +15,16 @@ def show_branch():
     branch = request.args.get('branch')
     pkgvers = PackageVersion.query.filter_by(repo=branch).all()
     pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
-    return render_template('branch.html', branch=branch, pkgvers=pkgvers)
+    title = f'Potentially vulnerable packages in {branch}'
+    return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
+
+
+@app.route('/branch/orphaned')
+def show_orphaned_vulns_for_branch():
+    branch = request.args.get('branch')
+    pkgvers = PackageVersion.query.filter_by(repo=branch, published=True, maintainer=None).all()
+    title = f'Potentially vulnerable orphaned packages in {branch}'
+    return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
 
 
 @app.route('/vuln/<cve_id>')

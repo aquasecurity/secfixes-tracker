@@ -14,10 +14,13 @@ corrected secfixes data is published, it should take less than 24 hours for the
 tracker to update.  If there are still problems, please ask in <code>#alpine-devel</code>
 on IRC.</p>
 
-<ul>
 {% for branch, _ in config['SECFIXES_REPOSITORIES'].items() %}
+<h2>{{ branch }}</h2>
+
+<ul>
 <li><a href="{{ url_for('show_branch', branch=branch) }}">Vulnerable packages in {{ branch }}</a></li>
-{% endfor %}
+<li><a href="{{ url_for('show_orphaned_vulns_for_branch', branch=branch) }}">Orphaned packages in {{ branch }}</a></li>
 </ul>
+{% endfor %}
 
 {% endblock %}

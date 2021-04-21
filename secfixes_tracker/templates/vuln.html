@@ -92,6 +92,7 @@
       <th>Source package</th>
       <th>Branch</th>
       <th>Version</th>
+      <th>Maintainer</th>
       <th>Status</th>
     </tr>
   </thead>
@@ -101,6 +102,7 @@
       <td><a href="{{ url_for('show_package', package=state.package_version.package.package_name) }}">{{ state.package_version.package.package_name }}</a></td>
       <td><a href="{{ url_for('show_branch', branch=state.package_version.repo) }}">{{ state.package_version.repo }}</a></td>
       <td>{{ state.package_version.version }}</td>
+      <td>{{ state.package_version.maintainer }}</td>
       <td>{{ 'fixed' if state.fixed else 'possibly vulnerable' }}</td>
     </tr>
     {% endfor %}
