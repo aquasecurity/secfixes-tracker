@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block body %}
+<h1>{{ title }}</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Source package</th>
+      <th>Version</th>
+    </tr>
+  </thead>
+  <tbody>
+{% for pkgver in pkgvers %}
+    <tr>
+      <td><a href="{{ url_for('show_package', package=pkgver.package.package_name) }}">{{ pkgver.package.package_name }}</a></td>
+      <td>{{ pkgver.version }}</td>
+    </tr>
+{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

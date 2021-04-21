@@ -18,8 +18,9 @@ on IRC.</p>
 <h2>{{ branch }}</h2>
 
 <ul>
-<li><a href="{{ url_for('show_branch', branch=branch) }}">Vulnerable packages in {{ branch }}</a></li>
-<li><a href="{{ url_for('show_orphaned_vulns_for_branch', branch=branch) }}">Orphaned packages in {{ branch }}</a></li>
+<li><a href="{{ url_for('show_branch', branch=branch) }}">Potentially vulnerable packages in {{ branch }}</a></li>
+<li><a href="{{ url_for('show_orphaned_vulns_for_branch', branch=branch) }}">Potentially vulnerable <strong>orphaned</strong> packages in {{ branch }}</a></li>
+<li><a href="{{ url_for('show_orphaned_for_branch', branch=branch) }}"><strong>Orphaned</strong> packages in {{ branch }}</a></li>
 </ul>
 {% endfor %}
 
