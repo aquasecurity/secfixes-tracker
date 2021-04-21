@@ -103,7 +103,7 @@ rewrite_perl = lambda x: 'perl-' + x.replace('_', '-').replace('::', '-').lower(
 rewrite_lua = lambda x: 'lua-' + x.replace('_', '-').lower()
 
 
-REWRITERS = {
+LANGUAGE_REWRITERS = {
     'python': rewrite_python,
     'ruby': rewrite_ruby,
     'perl': rewrite_perl,
@@ -112,7 +112,7 @@ REWRITERS = {
 
 
 def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
-    global REWRITERS
+    global LANGUAGE_REWRITERS
 
     if 'nodes' not in configuration or not configuration['nodes']:
         return
@@ -135,12 +135,20 @@ def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
         cpe_parts = cpe_uri.split(':')[3:6]
         cpe_language = cpe_uri.split(':')[10].lower()
 
-        rewriter = REWRITERS.get(cpe_language, None)
+        language_rewriter = LANGUAGE_REWRITERS.get(cpe_language, None)
 
-        # TODO: implement source_pkgname overrides in app.config
         source_pkgname = cpe_parts[1]
-        if rewriter:
-            source_pkgname = rewriter(source_pkgname)
+        if language_rewriter:
+            source_pkgname = language_rewriter(source_pkgname)
+
+        cpe_vendor = cpe_parts[0]
+
+        custom_rewriters = app.config.get('CUSTOM_REWRITERS', {})
+        custom_rewriter_key = f'{cpe_vendor}:{source_pkgname}'
+        custom_rewriter = custom_rewriters.get(custom_rewriter_key,
+                                               custom_rewriters.get(f'{cpe_vendor}:*', None))
+        if custom_rewriter:
+            source_pkgname = custom_rewriter(source_pkgname)
 
         source_version = cpe_parts[2] if cpe_parts[2] != '*' else None
 
