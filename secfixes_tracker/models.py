@@ -37,6 +37,29 @@ class Vulnerability(db.Model):
         return vuln
 
 
+class VulnerabilityReference(db.Model):
+    vuln_ref_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
+    vuln = db.relationship('Vulnerability', backref='references')
+    ref_type = db.Column(db.String(80))
+    ref_uri = db.Column(db.Text, index=True)
+
+    def __repr__(self):
+        return f'<VulnerabilityReference {self.ref_uri} ({self.ref_type}) for {self.vuln}>'
+
+    @classmethod
+    def find_or_create(cls, vuln: Vulnerability, ref_type: str, ref_uri: str):
+        ref = cls.query.filter_by(vuln_id=vuln.vuln_id, ref_uri=ref_uri).first()
+
+        if not ref:
+            ref = cls()
+            ref.vuln_id = vuln.vuln_id
+            ref.ref_type = ref_type
+            ref.ref_uri = ref_uri
+
+        return ref
+
+
 class Package(db.Model):
     package_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
     package_name = db.Column(db.Text)
