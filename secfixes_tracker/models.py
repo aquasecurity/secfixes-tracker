@@ -86,6 +86,10 @@ class Package(db.Model):
     def unresolved_vulns(self):
         return [state.vuln for ver in self.versions for state in ver.states if not state.fixed]
 
+    @property
+    def excluded(self):
+        return self.package_name in app.config.get('PACKAGE_EXCLUSIONS', [])
+
 
 class PackageVersion(db.Model):
     package_version_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
@@ -170,6 +174,10 @@ class CPEMatch(db.Model):
         This returns whether a CPEMatch matches a given PackageVersion.
         This does not mean that the package itself is necessarily vulnerable.
         """
+        # An excluded package will never match a CPE.
+        if package_version.package.excluded:
+            return False
+
         if not self.maximum_version:
             return True
 
