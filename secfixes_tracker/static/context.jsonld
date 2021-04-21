@@ -42,6 +42,8 @@
      "cvss3": "alpine:cvss3",
      "score": "alpine:cvss3Score",
      "vector": "alpine:cvss3Vector",
-     "description": "alpine:description"
+     "description": "alpine:description",
+     "Collection": "alpine:Collection",
+     "items": "alpine:items"
   }
 }
