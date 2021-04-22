@@ -101,6 +101,7 @@ rewrite_python = lambda x: 'py3-' + x.replace('_', '-').lower()
 rewrite_ruby = lambda x: 'ruby-' + x.replace('_', '-').lower()
 rewrite_perl = lambda x: 'perl-' + x.replace('_', '-').replace('::', '-').lower()
 rewrite_lua = lambda x: 'lua-' + x.replace('_', '-').lower()
+rewrite_vscode = lambda x: 'vscode-' + x.replace('_', '-').lower()
 
 
 LANGUAGE_REWRITERS = {
@@ -108,6 +109,7 @@ LANGUAGE_REWRITERS = {
     'ruby': rewrite_ruby,
     'perl': rewrite_perl,
     'lua': rewrite_lua,
+    'visual_studio_code': rewrite_vscode,
 }
 
 
