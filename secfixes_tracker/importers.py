@@ -178,17 +178,17 @@ def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
             if 'versionEndExcluding' in match:
                 max_version_op = '<'
 
-        process_nvd_cve_configuration_item(vuln, source_pkgname, min_version, min_version_op, max_version, max_version_op, vulnerable)
+        process_nvd_cve_configuration_item(vuln, source_pkgname, min_version, min_version_op, max_version, max_version_op, vulnerable, cpe_uri)
 
 
 def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str,
                                        min_version: str, min_version_op: str,
-                                       max_version: str, max_version_op: str, vulnerable: bool):
+                                       max_version: str, max_version_op: str, vulnerable: bool, cpe_uri: str):
     pkg = Package.find_or_create(source_pkgname)
     db.session.add(pkg)
     db.session.commit()
 
-    cm = CPEMatch.find_or_create(pkg, vuln, min_version, min_version_op, max_version, max_version_op, vulnerable)
+    cm = CPEMatch.find_or_create(pkg, vuln, min_version, min_version_op, max_version, max_version_op, vulnerable, cpe_uri)
     db.session.add(cm)
     db.session.commit()
 

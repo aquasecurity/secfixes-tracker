@@ -230,6 +230,7 @@ class CPEMatch(db.Model):
     maximum_version = db.Column(db.String(80))
     maximum_version_op = db.Column(db.String(5))
     vulnerable = db.Column(db.Boolean)
+    cpe_uri = db.Column(db.Text)
     vuln = db.relationship('Vulnerability', backref='cpe_matches')
     package = db.relationship('Package', backref='cpe_matches')
 
@@ -238,7 +239,7 @@ class CPEMatch(db.Model):
 
     @classmethod
     def find_or_create(cls, package: Package, vuln: Vulnerability, minimum_version: str, minimum_version_op: str,
-                       maximum_version: str, maximum_version_op: str, vulnerable: bool):
+                       maximum_version: str, maximum_version_op: str, vulnerable: bool, cpe_uri: str):
         match = cls.query.filter_by(package_id=package.package_id, vuln_id=vuln.vuln_id,
                                     minimum_version=minimum_version, maximum_version=maximum_version).first()
 
@@ -251,6 +252,7 @@ class CPEMatch(db.Model):
             match.minimum_version_op = minimum_version_op
             match.maximum_version_op = maximum_version_op
             match.vulnerable = vulnerable
+            match.cpe_uri = cpe_uri
 
         return match
 
@@ -306,4 +308,5 @@ class CPEMatch(db.Model):
             'minimumVersionOp': self.minimum_version_op,
             'maximumVersion': self.maximum_version,
             'maximumVersionOp': self.maximum_version_op,
+            'cpeUri': self.cpe_uri,
         }

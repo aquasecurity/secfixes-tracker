@@ -86,6 +86,29 @@
   </tbody>
 </table>
 
+<h2>Match rules</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>CPE URI</th>
+      <th>Source package</th>
+      <th>Min version</th>
+      <th>Max version</th>
+    </tr>
+  </thead>
+  <tbody>
+{% for match in vuln.cpe_matches %}
+    <tr>
+      <td><code>{{ match.cpe_uri }}</code></td>
+      <td>{{ match.package.package_name }}</td>
+      <td>{{ match.minimum_version_op }} {{ match.minimum_version }}</td>
+      <td>{{ match.maximum_version_op }} {{ match.maximum_version }}</td>
+    </tr>
+{% endfor %}
+  </tbody>
+</table>
+
 <h2>Vulnerable and fixed packages</h2>
 
 <table>
