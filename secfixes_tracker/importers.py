@@ -111,6 +111,11 @@ LANGUAGE_REWRITERS = {
 }
 
 
+def match_uses_version_ranges(match: dict) -> bool:
+    version_match_keywords = {'versionStartIncluding', 'versionStartExcluding', 'versionEndIncluding', 'versionEndExcluding'}
+    return version_match_keywords & set(match.keys()) != set()
+
+
 def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
     global LANGUAGE_REWRITERS
 
@@ -154,19 +159,36 @@ def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
 
         # some NVD CPE match nodes have versionStartIncluding/versionEndIncluding (same for Excluding),
         # so extract this data
-        # XXX: capture whether Including/Excluding is used and define inc/exc ops for the CPEMatch object
+        using_version_ranges = match_uses_version_ranges(match)
+
         max_version = match.get('versionEndIncluding', match.get('versionEndExcluding', source_version))
         min_version = match.get('versionStartIncluding', match.get('versionStartExcluding', None))
 
-        process_nvd_cve_configuration_item(vuln, source_pkgname, min_version, max_version, vulnerable)
+        min_version_op = '=='
+        max_version_op = '=='
+
+        # specify the correct op based on whether versionStartIncluding or versionStartExcluding are used
+        if using_version_ranges:
+            min_version_op = '>='
+            if 'versionStartExcluding' in match:
+                min_version_op = '>'
+
+            # same, but for versionEndIncluding/Excluding
+            max_version_op = '<='
+            if 'versionEndExcluding' in match:
+                max_version_op = '<'
+
+        process_nvd_cve_configuration_item(vuln, source_pkgname, min_version, min_version_op, max_version, max_version_op, vulnerable)
 
 
-def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str, min_version: str, max_version: str, vulnerable: bool):
+def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str,
+                                       min_version: str, min_version_op: str,
+                                       max_version: str, max_version_op: str, vulnerable: bool):
     pkg = Package.find_or_create(source_pkgname)
     db.session.add(pkg)
     db.session.commit()
 
-    cm = CPEMatch.find_or_create(pkg, vuln, min_version, max_version, vulnerable)
+    cm = CPEMatch.find_or_create(pkg, vuln, min_version, min_version_op, max_version, max_version_op, vulnerable)
     db.session.add(cm)
     db.session.commit()
 
