@@ -25,7 +25,7 @@ def show_collection_json_ld(pkgvers: list):
 @app.route('/branch/<branch>')
 @accept('text/html')
 def show_branch(branch):
-    pkgvers = PackageVersion.query.filter_by(repo=branch).all()
+    pkgvers = PackageVersion.query.filter_by(repo=branch, published=True).all()
     pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
     title = f'Potentially vulnerable packages in {branch}'
     return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
@@ -34,7 +34,7 @@ def show_branch(branch):
 @show_branch.support('application/json')
 @show_branch.support('application/ld+json')
 def show_branch_json_ld(branch):
-    pkgvers = PackageVersion.query.filter_by(repo=branch).all()
+    pkgvers = PackageVersion.query.filter_by(repo=branch, published=True).all()
     pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
     return show_collection_json_ld(pkgvers)
 
