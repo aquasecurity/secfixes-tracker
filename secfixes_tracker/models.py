@@ -116,10 +116,10 @@ class Package(db.Model):
         return [pkgver for pkgver in self.versions if pkgver.published]
 
     def resolved_vulns(self):
-        return [state.vuln for ver in self.versions for state in ver.states if state.fixed]
+        return list({state.vuln for ver in self.versions for state in ver.states if state.fixed})
 
     def unresolved_vulns(self):
-        return [state.vuln for ver in self.versions for state in ver.states if not state.fixed]
+        return list({state.vuln for ver in self.versions for state in ver.states if not state.fixed and ver.published})
 
     @property
     def excluded(self):
