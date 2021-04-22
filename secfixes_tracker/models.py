@@ -225,23 +225,25 @@ class CPEMatch(db.Model):
     cpe_match_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
     vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
     package_id = db.Column(db.Integer, db.ForeignKey('package.package_id'), nullable=False, index=True)
+    minimum_version = db.Column(db.String(80))
     maximum_version = db.Column(db.String(80))
     vulnerable = db.Column(db.Boolean)
     vuln = db.relationship('Vulnerability', backref='cpe_matches')
     package = db.relationship('Package', backref='cpe_matches')
 
     def __repr__(self):
-        ver = self.maximum_version if self.maximum_version else '*'
-        return f'<CPEMatch cpe:2.3:*:{self.package.package_name}:{ver}:*:*:*:*:*:*:*:*:*>'
+        return f'<CPEMatch {self.package.package_name} (>= {self.minimum_version}) (<= {self.maximum_version})>'
 
     @classmethod
-    def find_or_create(cls, package: Package, vuln: Vulnerability, maximum_version: str, vulnerable: bool):
-        match = cls.query.filter_by(package_id=package.package_id, vuln_id=vuln.vuln_id).first()
+    def find_or_create(cls, package: Package, vuln: Vulnerability, minimum_version: str, maximum_version: str, vulnerable: bool):
+        match = cls.query.filter_by(package_id=package.package_id, vuln_id=vuln.vuln_id,
+                                    minimum_version=minimum_version, maximum_version=maximum_version).first()
 
         if not match:
             match = cls()
             match.package_id = package.package_id
             match.vuln_id = vuln.vuln_id
+            match.minimum_version = minimum_version
             match.maximum_version = maximum_version
             match.vulnerable = vulnerable
 
@@ -256,13 +258,22 @@ class CPEMatch(db.Model):
         if package_version.package.excluded:
             return False
 
+        pv = APKVersion(package_version.version)
+
+        # Verify the minimum version is met, if there is one.
+        if self.minimum_version:
+            minv = APKVersion(self.minimum_version)
+
+            if pv < minv:
+                return False
+
+        # If the maximum version is unbounded, assume we're vulnerable.
         if not self.maximum_version:
             return True
 
-        pv = APKVersion(package_version.version)
-        mv = APKVersion(self.maximum_version)
-
-        return pv == mv
+        # Otherwise, compare.
+        maxv = APKVersion(self.maximum_version)
+        return pv <= maxv
 
     @property
     def json_ld_id(self):
@@ -275,5 +286,6 @@ class CPEMatch(db.Model):
             'type': 'CPEMatch',
             'vuln': self.vuln.json_ld_id,
             'package': self.package.json_ld_id,
+            'minimumVersion': self.minimum_version,
             'maximumVersion': self.maximum_version,
         }

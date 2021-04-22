@@ -152,15 +152,21 @@ def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
 
         source_version = cpe_parts[2] if cpe_parts[2] != '*' else None
 
-        process_nvd_cve_configuration_item(vuln, source_pkgname, source_version, vulnerable)
+        # some NVD CPE match nodes have versionStartIncluding/versionEndIncluding (same for Excluding),
+        # so extract this data
+        # XXX: capture whether Including/Excluding is used and define inc/exc ops for the CPEMatch object
+        max_version = match.get('versionEndIncluding', match.get('versionEndExcluding', source_version))
+        min_version = match.get('versionStartIncluding', match.get('versionStartExcluding', None))
+
+        process_nvd_cve_configuration_item(vuln, source_pkgname, min_version, max_version, vulnerable)
 
 
-def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str, source_version: str, vulnerable: bool):
+def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str, min_version: str, max_version: str, vulnerable: bool):
     pkg = Package.find_or_create(source_pkgname)
     db.session.add(pkg)
     db.session.commit()
 
-    cm = CPEMatch.find_or_create(pkg, vuln, source_version, vulnerable)
+    cm = CPEMatch.find_or_create(pkg, vuln, min_version, max_version, vulnerable)
     db.session.add(cm)
     db.session.commit()
 
