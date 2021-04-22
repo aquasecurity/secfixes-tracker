@@ -59,8 +59,10 @@
   <div class="flex-row">
     <div class="flex-term">Forges</div>
     <div class="flex-definition">
-      GitHub <a href='https://github.com/search?type=Code&q="{{ vuln.cve_id }}"'>code</a>,
-      <a href='https://github.com/search?type=Issues&q="{{ vuln.cve_id }}"'>issues</a>
+      GitHub (<a href='https://github.com/search?type=Code&q="{{ vuln.cve_id }}"'>code</a>,
+      <a href='https://github.com/search?type=Issues&q="{{ vuln.cve_id }}"'>issues</a>),
+      Aports (<a href='https://gitlab.alpinelinux.org/search?group_id=2&project_id=1&scope=blobs&search={{ vuln.cve_id }}'>code</a>,
+      <a href='https://gitlab.alpinelinux.org/alpine/aports/-/issues?state=all&search={{ vuln.cve_id }}'>issues</a>)
     </div>
   </div>
 </div>
