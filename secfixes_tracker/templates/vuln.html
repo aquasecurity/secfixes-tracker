@@ -122,7 +122,7 @@
     </tr>
   </thead>
   <tbody>
-    {% for state in vuln.states %}
+    {% for state in vuln.published_states %}
     <tr>
       <td><a href="{{ url_for('show_package', package=state.package_version.package.package_name) }}">{{ state.package_version.package.package_name }}</a></td>
       <td><a href="{{ url_for('show_branch', branch=state.package_version.repo) }}">{{ state.package_version.repo }}</a></td>

@@ -58,6 +58,10 @@ class Vulnerability(db.Model):
             'cpeMatch': [cpe_match.to_json_ld() for cpe_match in self.cpe_matches],
         }
 
+    @property
+    def published_states(self):
+        return [state for state in self.states if state.package_version.published]
+
 
 class VulnerabilityReference(db.Model):
     vuln_ref_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
