@@ -329,15 +329,18 @@ def update_states_if_pkgver_matches_cpe_match(pkgver: PackageVersion, cpe_match:
         return
 
     # Look for a fixed VulnerabilityState that is older than pkgver.
-    # XXX: We need to find the lowest fixed version ideally.
-    fixed_state = VulnerabilityState.query.filter_by(vuln_id=vuln.vuln_id, fixed=True).first()
+    fixed_states = VulnerabilityState.query.filter_by(vuln_id=vuln.vuln_id, fixed=True).all()
+    fixed_states = [state for state in fixed_states if state.package_version.repo == pkgver.repo]
+    fixed_states = sorted(fixed_states, key=lambda x: APKVersion(x.package_version.version))
+
+    fixed_state = fixed_states[0] if fixed_states else None
     fixed = False
     if not fixed_state:
         print(f'I: No fix recorded against any {pkgver.package} version for {vuln}')
     else:
         print(f'I: Fix recorded in {fixed_state.package_version} for {vuln}')
 
-        fv = fixed_state.package_version
+        fv = APKVersion(fixed_state.package_version.version)
         fixed = pv >= fv
 
     vuln_state = VulnerabilityState.find_or_create(pkgver, vuln)
