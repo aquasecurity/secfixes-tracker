@@ -198,6 +198,9 @@ class VulnerabilityState(db.Model):
     vuln = db.relationship('Vulnerability', backref='states')
     package_version = db.relationship('PackageVersion', backref='states')
 
+    def __repr__(self):
+        return f'<VulnerabilityState {self.package_version} fixed={self.fixed}>'
+
     @classmethod
     def find_or_create(cls, package_version: PackageVersion, vuln: Vulnerability):
         state = cls.query.filter_by(package_version_id=package_version.package_version_id,
