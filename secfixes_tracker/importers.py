@@ -5,6 +5,7 @@ import uuid
 import requests
 import tarfile
 import tempfile
+import yaml
 
 
 from io import TextIOWrapper
@@ -234,6 +235,44 @@ def import_secfixes_package(repo: str, package: dict):
 
             db.session.add(state)
             db.session.commit()
+
+
+@app.cli.command('import-rejections', help='Import security rejections feeds.')
+def import_security_rejections():
+    for repo, uri in app.config.get('SECURITY_REJECTIONS', {}).items():
+        import_security_rejections_feed(repo, uri)
+
+
+def import_security_rejections_feed(repo: str, uri: str):
+    print(f'I: [{repo}] Downloading {uri}')
+
+    r = requests.get(uri)
+
+    try:
+        feed = yaml.load(r.content, Loader=yaml.SafeLoader)
+        [import_security_rejections_package(repo, k, v) for k, v in feed.items()]
+    except Exception as e:
+        print(f'E: Encountered {e} while parsing security rejections feed.')
+
+
+def import_security_rejections_package(repo: str, pkgname: str, cves: list):
+    pkg = Package.find_or_create(pkgname)
+    db.session.add(pkg)
+
+    pkgver = PackageVersion.find_or_create(pkg, '0', repo)
+    db.session.add(pkgver)
+    db.session.commit()
+
+    for cve in cves:
+        vuln = Vulnerability.find_or_create(cve)
+        db.session.add(vuln)
+        db.session.commit()
+
+        state = VulnerabilityState.find_or_create(pkgver, vuln)
+        state.fixed = True
+
+        db.session.add(state)
+        db.session.commit()
 
 
 @app.cli.command('import-apkindex', help='Import APK repository indices.')
