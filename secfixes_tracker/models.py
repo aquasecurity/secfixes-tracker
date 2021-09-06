@@ -54,7 +54,7 @@ class Vulnerability(db.Model):
                  'vector': self.cvss3_vector,
             },
             'ref': [ref.to_json_ld() for ref in self.references],
-            'state': [state.to_json_ld() for state in self.states],
+            'state': [state.to_json_ld() for state in self.published_states],
             'cpeMatch': [cpe_match.to_json_ld() for cpe_match in self.cpe_matches],
         }
 
