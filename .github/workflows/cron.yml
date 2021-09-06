@@ -28,10 +28,10 @@ jobs:
         run: flask import-secfixes
       - name: Import NVD
         run: |
-          flask import-nvd 2018
-          flask import-nvd 2019
-          flask import-nvd 2020
-          flask import-nvd 2021
+          for year in $(seq 2018 $(date "+%Y"))
+          do
+            flask import-nvd $year
+          done
       - name: Update states
         run: flask update-states
       - name: Clean existing files
