@@ -28,9 +28,23 @@ jobs:
         run: flask import-secfixes
       - name: Import NVD
         run: |
-          flask import-nvd 2018
-          flask import-nvd 2019
-          flask import-nvd 2020
+#          flask import-nvd 2018
+#          flask import-nvd 2019
+#          flask import-nvd 2020
           flask import-nvd 2021
       - name: Update states
         run: flask update-states
+      - name: Clean existing files
+        run: rm -rf data && mkdir data
+      - name: Export JSON files
+        run: flask export
+      - name: Compress
+        run: |
+          tar cvfz all.tar.gz data
+          mkdir -p public
+          mv all.tar.gz public
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
