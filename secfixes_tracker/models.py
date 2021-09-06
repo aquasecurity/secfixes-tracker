@@ -375,4 +375,3 @@ def export():
 
         with open(f'data/{vuln.cve_id}.json', 'w') as f:
             json.dump(vuln.to_json(), f, indent=4)
-            # print(json.dumps(vuln.to_json(), indent=4))
