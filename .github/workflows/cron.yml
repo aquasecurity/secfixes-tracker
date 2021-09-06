@@ -1,0 +1,36 @@
+name: Update secfixes tracker
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  update:
+    name: Update
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.9-alpine
+    env:
+      FLASK_APP: secfixes_tracker
+      SECFIXES_TRACKER_CONFIG: application.cfg
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: |
+          apk add alpine-sdk gcc musl-dev libc-dev
+          pip3 install -r requirements.txt
+      - name: Initialize DB
+        run: flask init-db
+      - name: Import APKINDEX
+        run: flask import-apkindex
+      - name: Import secfixes
+        run: flask import-secfixes
+      - name: Import NVD
+        run: |
+          flask import-nvd 2018
+          flask import-nvd 2019
+          flask import-nvd 2020
+          flask import-nvd 2021
+      - name: Update states
+        run: flask update-states
