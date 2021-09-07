@@ -1,7 +1,7 @@
 from . import app, db
 from .version import APKVersion
 
-
+import json
 from flask import request
 
 
@@ -58,6 +58,21 @@ class Vulnerability(db.Model):
             'cpeMatch': [cpe_match.to_json_ld() for cpe_match in self.cpe_matches],
         }
 
+    def to_json(self):
+        score = float(self.cvss3_score) if self.cvss3_score else 0
+        return {
+            'type': 'Vulnerability',
+            'id': self.cve_id,
+            'description': self.description,
+            'cvss3': {
+                'score': score,
+                'vector': self.cvss3_vector,
+            },
+            'ref': [ref.to_json() for ref in self.references],
+            'state': [state.to_json() for state in self.published_states],
+            'cpeMatch': [cpe_match.to_json() for cpe_match in self.cpe_matches],
+        }
+
     @property
     def published_states(self):
         return [state for state in self.states if state.package_version.published]
@@ -98,6 +113,13 @@ class VulnerabilityReference(db.Model):
             'rel': self.ref_uri,
         }
 
+    def to_json(self):
+        return {
+            'type': 'Reference',
+            'referenceType': self.ref_type,
+            'id': self.vuln_ref_id,
+            'rel': self.ref_uri,
+        }
 
 class Package(db.Model):
     package_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
@@ -227,6 +249,17 @@ class VulnerabilityState(db.Model):
             'packageVersion': self.package_version.json_ld_id,
         }
 
+    def to_json(self):
+        return {
+            'id': self.vuln_state_id,
+            'type': 'VulnerabilityState',
+            'vuln': self.vuln.cve_id,
+            'fixed': self.fixed,
+            'published': self.package_version.published,
+            'repo': self.package_version.repo,
+            'packageName': self.package_version.package.package_name,
+            'packageVersion': self.package_version.version,
+        }
 
 class CPEMatch(db.Model):
     cpe_match_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
@@ -317,3 +350,28 @@ class CPEMatch(db.Model):
             'maximumVersionOp': self.maximum_version_op,
             'cpeUri': self.cpe_uri,
         }
+
+    def to_json(self):
+        return {
+            'id': self.cpe_match_id,
+            'type': 'CPEMatch',
+            'vuln': self.vuln.cve_id,
+            'package': self.package.package_name,
+            'minimumVersion': self.minimum_version,
+            'minimumVersionOp': self.minimum_version_op,
+            'maximumVersion': self.maximum_version,
+            'maximumVersionOp': self.maximum_version_op,
+            'cpeUri': self.cpe_uri,
+        }
+
+
+@app.cli.command('export', help='Export JSON files.')
+def export():
+    vulns = Vulnerability.query.all()
+    for vuln in vulns:
+        is_vulnerable = False in [state.fixed for state in vuln.states]
+        if not is_vulnerable:
+            continue
+
+        with open(f'data/{vuln.cve_id}.json', 'w') as f:
+            json.dump(vuln.to_json(), f, indent=4)
