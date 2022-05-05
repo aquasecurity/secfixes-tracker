@@ -1,4 +1,4 @@
-from flask import render_template, request, jsonify
+from flask import render_template, request, jsonify, url_for
 from flask_accept import accept
 
 
@@ -10,6 +10,20 @@ from .models import Vulnerability, PackageVersion, Package
 @accept('text/html')
 def show_index():
     return render_template('index.html')
+
+
+@show_index.support('application/json')
+@show_index.support('application/ld+json')
+def show_index_json_ld():
+    branches = {}
+    for branch in app.config.get('SECFIXES_REPOSITORIES', {}).keys():
+        branches[branch] = {
+            "potentiallyVulnerablePackages": f'https://{request.host}{url_for("show_branch", branch=branch)}',
+            "potentiallyOrphanedVulnerablePackages": f'https://{request.host}{url_for("show_orphaned_vulns_for_branch", branch=branch)}',
+            "orphanedPackages": f'https://{request.host}{url_for("show_orphaned_for_branch", branch=branch)}',
+            "issuesByMaintainer": f'https://{request.host}{url_for("show_maintainer_issues", branch=branch)}',
+        }
+    return jsonify(branches)
 
 
 def show_collection_json_ld(pkgvers: list):
