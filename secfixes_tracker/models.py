@@ -50,7 +50,7 @@ class Vulnerability(db.Model):
             'id': self.json_ld_id,
             'description': self.description,
             'cvss3': {
-                 'score': float(self.cvss3_score),
+                 'score': float(self.cvss3_score) if self.cvss3_score else 0.0,
                  'vector': self.cvss3_vector,
             },
             'ref': [ref.to_json_ld() for ref in self.references],
