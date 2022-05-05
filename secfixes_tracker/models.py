@@ -225,6 +225,7 @@ class VulnerabilityState(db.Model):
             'vuln': self.vuln.json_ld_id,
             'fixed': self.fixed,
             'packageVersion': self.package_version.json_ld_id,
+            'repo': self.package_version.repo,
         }
 
 
