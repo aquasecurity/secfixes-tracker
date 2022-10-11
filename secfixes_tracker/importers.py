@@ -294,14 +294,15 @@ def import_apkindex_repo(repo: str, uri: str):
 
 
 def import_apkindex_pkg(pkg: dict, repo: str):
-    p = Package.find_or_create(pkg['o'])
+    origin = pkg.get('o', pkg['P'])
+    p = Package.find_or_create(origin)
     db.session.add(p)
     db.session.commit()
 
     pkgver = PackageVersion.find_or_create(p, pkg['V'], repo)
     pkgver.published = True
 
-    if pkg['o'] == pkg['P']:
+    if origin == pkg['P']:
         pkgver.maintainer = pkg.get('m', None)
 
     db.session.add(pkgver)
