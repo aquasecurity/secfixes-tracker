@@ -253,6 +253,7 @@ def import_security_rejections_feed(repo: str, uri: str):
         [import_security_rejections_package(repo, k, v) for k, v in feed.items()]
     except Exception as e:
         print(f'E: Encountered {e} while parsing security rejections feed.')
+    db.session.commit()
 
 
 def import_security_rejections_package(repo: str, pkgname: str, cves: list):
@@ -261,18 +262,15 @@ def import_security_rejections_package(repo: str, pkgname: str, cves: list):
 
     pkgver = PackageVersion.find_or_create(pkg, '0', repo)
     db.session.add(pkgver)
-    db.session.commit()
 
     for cve in cves:
         vuln = Vulnerability.find_or_create(cve)
         db.session.add(vuln)
-        db.session.commit()
 
         state = VulnerabilityState.find_or_create(pkgver, vuln)
         state.fixed = True
 
         db.session.add(state)
-        db.session.commit()
 
 
 @app.cli.command('import-apkindex', help='Import APK repository indices.')
