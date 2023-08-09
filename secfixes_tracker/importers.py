@@ -336,8 +336,18 @@ def import_apkindex_payload(repo: str, file):
 
 
 @app.cli.command('update-states', help='Update the package vulnerability states.')
-def update_states():
-    for repo, _ in app.config.get('SECFIXES_REPOSITORIES', {}).items():
+@click.argument('repo', required=False)
+def update_states(repo: str):
+    repositories = app.config.get('SECFIXES_REPOSITORIES', {})
+    if repo:
+        if not repositories.get(repo):
+            print(f"E: Repository {repo} not found in SECFIXES_REPOSITORIES.")
+            exit(1)
+
+        update_states_for_repo_tag(repo)
+        return
+
+    for repo, _ in repositories.items():
         update_states_for_repo_tag(repo)
 
 
@@ -346,6 +356,7 @@ def update_states_for_repo_tag(repo: str):
 
     for pkgver in PackageVersion.query.filter_by(repo=repo, published=True):
         update_states_for_pkgver(pkgver)
+    db.session.commit()
 
 
 def update_states_for_pkgver(pkgver: PackageVersion):
@@ -389,4 +400,3 @@ def update_states_if_pkgver_matches_cpe_match(pkgver: PackageVersion, cpe_match:
 
     vuln_state.fixed = fixed
     db.session.add(vuln_state)
-    db.session.commit()
