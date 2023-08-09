@@ -238,7 +238,18 @@ def import_secfixes_package(repo: str, package: dict):
 
 
 @app.cli.command('import-rejections', help='Import security rejections feeds.')
-def import_security_rejections():
+@click.argument('repo', required=False)
+def import_security_rejections(repo: str):
+    repositories = app.config.get('SECURITY_REJECTIONS', {})
+    if repo:
+        uri = repositories.get(repo)
+        if uri:
+            import_security_rejections_feed(repo, uri)
+            return
+
+        print(f"E: Repository {repo} not found in SECURITY_REJECTIONS.")
+        exit(1)
+
     for repo, uri in app.config.get('SECURITY_REJECTIONS', {}).items():
         import_security_rejections_feed(repo, uri)
 
