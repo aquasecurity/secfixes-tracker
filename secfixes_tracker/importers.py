@@ -346,6 +346,7 @@ def update_states_for_repo_tag(repo: str):
 
     for pkgver in PackageVersion.query.filter_by(repo=repo, published=True):
         update_states_for_pkgver(pkgver)
+    db.session.commit()
 
 
 def update_states_for_pkgver(pkgver: PackageVersion):
@@ -389,4 +390,3 @@ def update_states_if_pkgver_matches_cpe_match(pkgver: PackageVersion, cpe_match:
 
     vuln_state.fixed = fixed
     db.session.add(vuln_state)
-    db.session.commit()
