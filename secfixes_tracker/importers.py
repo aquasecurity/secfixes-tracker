@@ -297,7 +297,6 @@ def import_apkindex_pkg(pkg: dict, repo: str):
     origin = pkg.get('o', pkg['P'])
     p = Package.find_or_create(origin)
     db.session.add(p)
-    db.session.commit()
 
     pkgver = PackageVersion.find_or_create(p, pkg['V'], repo)
     pkgver.published = True
@@ -306,7 +305,6 @@ def import_apkindex_pkg(pkg: dict, repo: str):
         pkgver.maintainer = pkg.get('m', None)
 
     db.session.add(pkgver)
-    db.session.commit()
 
 
 def import_apkindex_idx(index_data, repo: str):
@@ -320,6 +318,7 @@ def import_apkindex_idx(index_data, repo: str):
             current_pkg = {}
         else:
             current_pkg[data[0]] = data[1]
+    db.session.commit()
 
 
 def import_apkindex_payload(repo: str, file):
