@@ -197,8 +197,19 @@ def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str,
 
 
 @app.cli.command('import-secfixes', help='Import secfixes feeds.')
-def import_secfixes():
-    for repo, uri in app.config.get('SECFIXES_REPOSITORIES', {}).items():
+@click.argument('repo', required=False)
+def import_secfixes(repo: str):
+    repositories = app.config.get('SECFIXES_REPOSITORIES', {})
+    if repo:
+        uri = repositories.get(repo)
+        if uri:
+            import_secfixes_feed(repo, uri)
+            return
+
+        print(f"E: Repository {repo} not found in SECFIXES_REPOSITORIES.")
+        exit(1)
+
+    for repo, uri in repositories.items():
         import_secfixes_feed(repo, uri)
 
 
