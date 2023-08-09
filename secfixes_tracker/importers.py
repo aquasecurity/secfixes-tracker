@@ -212,6 +212,7 @@ def import_secfixes_feed(repo: str, uri: str):
 
     for package in packages:
         import_secfixes_package(repo, package['pkg'])
+    db.session.commit()
 
 
 def import_secfixes_package(repo: str, package: dict):
@@ -222,19 +223,16 @@ def import_secfixes_package(repo: str, package: dict):
     for ver, fixes in secfixes.items():
         pkgver = PackageVersion.find_or_create(pkg, ver, repo)
         db.session.add(pkgver)
-        db.session.commit()
 
         for fix in fixes:
             fix = fix.split()[0]
             vuln = Vulnerability.find_or_create(fix)
             db.session.add(vuln)
-            db.session.commit()
 
             state = VulnerabilityState.find_or_create(pkgver, vuln)
             state.fixed = True
 
             db.session.add(state)
-            db.session.commit()
 
 
 @app.cli.command('import-rejections', help='Import security rejections feeds.')
