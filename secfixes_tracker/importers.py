@@ -37,6 +37,7 @@ def import_nvd_cve(name: str):
     for item in data['CVE_Items']:
         process_nvd_cve_item(item)
 
+    db.session.commit()
     print(f'I: Imported NVD feed successfully.')
 
 
@@ -57,7 +58,6 @@ def process_nvd_cve_reference(vuln: Vulnerability, item: dict):
 
 def process_nvd_cve_references(vuln: Vulnerability, refs: list):
     [process_nvd_cve_reference(vuln, item) for item in refs]
-    db.session.commit()
 
 
 def process_nvd_cve_item(item: dict):
@@ -89,7 +89,6 @@ def process_nvd_cve_item(item: dict):
     vuln.cvss3_vector = cvss3_vector
 
     db.session.add(vuln)
-    db.session.commit()
 
     if 'configurations' in item:
         process_nvd_cve_configurations(vuln, item['configurations'])
@@ -189,11 +188,9 @@ def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str,
                                        max_version: str, max_version_op: str, vulnerable: bool, cpe_uri: str):
     pkg = Package.find_or_create(source_pkgname)
     db.session.add(pkg)
-    db.session.commit()
 
     cm = CPEMatch.find_or_create(pkg, vuln, min_version, min_version_op, max_version, max_version_op, vulnerable, cpe_uri)
     db.session.add(cm)
-    db.session.commit()
 
 
 @app.cli.command('import-secfixes', help='Import secfixes feeds.')
