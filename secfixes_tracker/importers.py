@@ -238,7 +238,18 @@ def import_secfixes_package(repo: str, package: dict):
 
 
 @app.cli.command('import-rejections', help='Import security rejections feeds.')
-def import_security_rejections():
+@click.argument('repo', required=False)
+def import_security_rejections(repo: str):
+    repositories = app.config.get('SECURITY_REJECTIONS', {})
+    if repo:
+        uri = repositories.get(repo)
+        if uri:
+            import_security_rejections_feed(repo, uri)
+            return
+
+        print(f"E: Repository {repo} not found in SECURITY_REJECTIONS.")
+        exit(1)
+
     for repo, uri in app.config.get('SECURITY_REJECTIONS', {}).items():
         import_security_rejections_feed(repo, uri)
 
@@ -253,6 +264,7 @@ def import_security_rejections_feed(repo: str, uri: str):
         [import_security_rejections_package(repo, k, v) for k, v in feed.items()]
     except Exception as e:
         print(f'E: Encountered {e} while parsing security rejections feed.')
+    db.session.commit()
 
 
 def import_security_rejections_package(repo: str, pkgname: str, cves: list):
@@ -261,18 +273,15 @@ def import_security_rejections_package(repo: str, pkgname: str, cves: list):
 
     pkgver = PackageVersion.find_or_create(pkg, '0', repo)
     db.session.add(pkgver)
-    db.session.commit()
 
     for cve in cves:
         vuln = Vulnerability.find_or_create(cve)
         db.session.add(vuln)
-        db.session.commit()
 
         state = VulnerabilityState.find_or_create(pkgver, vuln)
         state.fixed = True
 
         db.session.add(state)
-        db.session.commit()
 
 
 @app.cli.command('import-apkindex', help='Import APK repository indices.')
