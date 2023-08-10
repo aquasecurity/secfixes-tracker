@@ -276,10 +276,21 @@ def import_security_rejections_package(repo: str, pkgname: str, cves: list):
 
 
 @app.cli.command('import-apkindex', help='Import APK repository indices.')
-def import_apkindex():
-    for repo, uri in app.config.get('APKINDEX_REPOSITORIES', {}).items():
-        import_apkindex_repo(repo, uri)
+@click.argument('repo', required=False)
+def import_apkindex(repo: str):
+    repositories = app.config.get('APKINDEX_REPOSITORIES', {})
 
+    if repo:
+        uri = repositories.get(repo)
+        if uri:
+            import_apkindex_repo(repo, uri)
+            return
+
+        print(f"E: Repository {repo} not found in APKINDEX_REPOSITORIES.")
+        exit(1)
+
+    for repo, uri in repositories.items():
+        import_apkindex_repo(repo, uri)
 
 def import_apkindex_repo(repo: str, uri: str):
     print(f'I: [{repo}] Downloading {uri}')
@@ -297,7 +308,6 @@ def import_apkindex_pkg(pkg: dict, repo: str):
     origin = pkg.get('o', pkg['P'])
     p = Package.find_or_create(origin)
     db.session.add(p)
-    db.session.commit()
 
     pkgver = PackageVersion.find_or_create(p, pkg['V'], repo)
     pkgver.published = True
@@ -306,7 +316,6 @@ def import_apkindex_pkg(pkg: dict, repo: str):
         pkgver.maintainer = pkg.get('m', None)
 
     db.session.add(pkgver)
-    db.session.commit()
 
 
 def import_apkindex_idx(index_data, repo: str):
@@ -320,6 +329,7 @@ def import_apkindex_idx(index_data, repo: str):
             current_pkg = {}
         else:
             current_pkg[data[0]] = data[1]
+    db.session.commit()
 
 
 def import_apkindex_payload(repo: str, file):
