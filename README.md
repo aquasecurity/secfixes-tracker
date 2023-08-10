@@ -39,11 +39,11 @@ but that's not covered here.
 
 Initializes the database.
 
-### `flask import-apkindex`
+### `flask import-apkindex [repo]`
 
 Imports the configured repositories.
 
-### `flask import-secfixes`
+### `flask import-secfixes [repo]`
 
 Imports the configured secdb feeds.
 
@@ -54,7 +54,7 @@ Imports an NVD feed, such as `2021` or `recent`.
 Once the yearly feeds have been imported, you only need to import the `recent` feed
 on a daily basis.
 
-### `flask update-states`
+### `flask update-states [repo]`
 
 Updates the various `VulnerabilityState` items based on the current contents of
 the secfixes, NVD and apkindex feeds.  This should be run after the above import
