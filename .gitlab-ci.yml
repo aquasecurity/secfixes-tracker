@@ -1,0 +1,11 @@
+test-default:
+  image: alpine:3.18
+  stage: test
+  script:
+    - apk upgrade -U -a
+    - apk add python3 py3-flask py3-pytest py3-pytest-cov py3-pip py3-requests py3-yaml py3-dotenv
+    - pip install -r requirements.txt
+    - python3 -m pytest -v --cov=secfixes_tracker --cov-report term-missing tests/
+  tags:
+    - docker-alpine
+    - x86_64
