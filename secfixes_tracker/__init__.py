@@ -6,9 +6,14 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
-def create_app():
+def create_app(testing=False):
     app = Flask(__name__)
-    app.config.from_pyfile(os.environ.get('SECFIXES_TRACKER_CONFIG', None), silent=False)
+    if testing:
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+        app.config['SERVER_NAME'] = 'localhost'
+    else:
+        app.config.from_pyfile(os.environ.get('SECFIXES_TRACKER_CONFIG', None), silent=False)
+
     app.config['SECFIXES_TRACKER_VERSION'] = '0.3.3'
 
     db.init_app(app)
