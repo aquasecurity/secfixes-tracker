@@ -11,6 +11,7 @@ def create_app(testing=False):
     if testing:
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         app.config['SERVER_NAME'] = 'localhost'
+        app.config['SECFIXES_REPOSITORIES'] = {}
     else:
         app.config.from_pyfile(os.environ.get('SECFIXES_TRACKER_CONFIG', None), silent=False)
 
