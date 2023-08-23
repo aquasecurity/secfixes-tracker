@@ -23,5 +23,10 @@ def db(app):
 
 
 @pytest.fixture(scope='module')
+def client(app):
+    return app.test_client()
+
+
+@pytest.fixture(scope='module')
 def runner(app):
     return app.test_cli_runner()
