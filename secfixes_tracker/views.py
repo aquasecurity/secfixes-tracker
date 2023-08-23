@@ -12,7 +12,6 @@ def register(app):
     def show_index():
         return render_template('index.html')
 
-
     @show_index.support('application/json')
     @show_index.support('application/ld+json')
     def show_index_json_ld():
@@ -26,7 +25,6 @@ def register(app):
             }
         return jsonify(branches)
 
-
     def show_collection_json_ld(pkgvers: list):
         resp = {
             '@context': f'https://{request.host}/static/context.jsonld',
@@ -36,53 +34,53 @@ def register(app):
         }
         return jsonify(resp)
 
-
     @app.route('/branch/<branch>')
     @accept('text/html')
     def show_branch(branch):
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True).all()
+        pkgvers = PackageVersion.query.filter_by(
+            repo=branch, published=True).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         title = f'Potentially vulnerable packages in {branch}'
         return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
 
-
     @show_branch.support('application/json')
     @show_branch.support('application/ld+json')
     def show_branch_json_ld(branch):
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True).all()
+        pkgvers = PackageVersion.query.filter_by(
+            repo=branch, published=True).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         return show_collection_json_ld(pkgvers)
-
 
     @app.route('/branch/<branch>/vuln-orphaned')
     @accept('text/html')
     def show_orphaned_vulns_for_branch(branch):
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True, maintainer=None).all()
+        pkgvers = PackageVersion.query.filter_by(
+            repo=branch, published=True, maintainer=None).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         title = f'Potentially vulnerable orphaned packages in {branch}'
         return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
 
-
     @show_orphaned_vulns_for_branch.support('application/json')
     @show_orphaned_vulns_for_branch.support('application/ld+json')
     def show_orphaned_vulns_for_branch_json_ld(branch):
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True, maintainer=None).all()
+        pkgvers = PackageVersion.query.filter_by(
+            repo=branch, published=True, maintainer=None).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         return show_collection_json_ld(pkgvers)
-
 
     @app.route('/branch/<branch>/orphaned')
     @accept('text/html')
     def show_orphaned_for_branch(branch):
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True, maintainer=None).all()
+        pkgvers = PackageVersion.query.filter_by(
+            repo=branch, published=True, maintainer=None).all()
         title = f'Orphaned packages in {branch}'
         return render_template('branch-orphaned.html', title=title, branch=branch, pkgvers=pkgvers)
-
 
     @show_orphaned_for_branch.support('application/json')
     @show_orphaned_for_branch.support('application/ld+json')
     def show_orphaned_for_branch_json_ld(branch):
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True, maintainer=None).all()
+        pkgvers = PackageVersion.query.filter_by(
+            repo=branch, published=True, maintainer=None).all()
         resp = {
             '@context': f'https://{request.host}/static/context.jsonld',
             'id': f'https://{request.host}{request.path}',
@@ -90,7 +88,6 @@ def register(app):
             'items': [pkgver.to_json_ld() for pkgver in pkgvers]
         }
         return jsonify(resp)
-
 
     @app.route('/branch/<branch>/maintainer-issues')
     @accept('text/html')
@@ -106,7 +103,6 @@ def register(app):
         title = f'Issues by maintainer for {branch}'
         return render_template('branch-maintainer.html', title=title, branch=branch, pkgvers=pkgvers)
 
-
     @show_maintainer_issues.support('application/json')
     @show_maintainer_issues.support('application/ld+json')
     def show_maintainer_issues_json_ld(branch):
@@ -119,13 +115,11 @@ def register(app):
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         return show_collection_json_ld(pkgvers)
 
-
     @app.route('/vuln/<cve_id>')
     @accept('text/html')
     def show_vulnerability(cve_id):
         v = Vulnerability.query.filter_by(cve_id=cve_id).first_or_404()
         return render_template('vuln.html', vuln=v)
-
 
     @show_vulnerability.support('application/json')
     @show_vulnerability.support('application/ld+json')
@@ -133,13 +127,11 @@ def register(app):
         v = Vulnerability.query.filter_by(cve_id=cve_id).first_or_404()
         return jsonify(v.to_json_ld())
 
-
     @app.route('/srcpkg/<package>')
     @accept('text/html')
     def show_package(package):
         p = Package.query.filter_by(package_name=package).first_or_404()
         return render_template('package.html', package=p)
-
 
     @show_package.support('application/json')
     @show_package.support('application/ld+json')
@@ -147,11 +139,11 @@ def register(app):
         p = Package.query.filter_by(package_name=package).first_or_404()
         return jsonify(p.to_json_ld())
 
-
     @app.route('/srcpkg/<package>/<version>')
     @accept('application/json')
     @accept('application/ld+json')
     def show_package_version_json_ld(package, version):
         p = Package.query.filter_by(package_name=package).first_or_404()
-        pv = PackageVersion.query.filter_by(package_id=p.package_id, version=version).first_or_404()
+        pv = PackageVersion.query.filter_by(
+            package_id=p.package_id, version=version).first_or_404()
         return jsonify(pv.to_json_ld())
