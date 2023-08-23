@@ -62,3 +62,43 @@ def test_branch_route_json(app, accept):
 
         assert 'id' in res.json
         assert res.json['id'] == 'https://localhost/branch/edge-main'
+
+
+def test_branch_vuln_orphaned_route_html(app):
+    """
+    GIVEN a Flask application
+    WHEN the '/branch/<branch>/vuln-orphaned' route is requested (GET) with Accept: text/html
+    THEN check that the response contains valid HTML
+    """
+    branch_name = "edge-main"
+    app.config['SECFIXES_REPOSITORIES'] = {branch_name: "https://localhost"}
+
+    with app.test_client() as client:
+        res = client.get(
+            f'/branch/{branch_name}/vuln-orphaned', headers={"Accept": "text/html"})
+
+        assert res.status_code == 200
+        # Check for a specific HTML content or structure in the response
+        assert b'<title>Potentially vulnerable orphaned packages in edge-main' in res.data
+
+
+@pytest.mark.parametrize('accept', ['application/json', 'application/ld+json'])
+def test_branch_vuln_orphaned_route_json(app, accept):
+    """
+    GIVEN a Flask application
+    WHEN the '/branch/<branch>/vuln-orphaned' route is requested (GET) with Accept: application/json or application/ld+json
+    THEN check that the response is valid JSON
+    """
+    branch_name = "edge-main"  # as an example
+    app.config['SECFIXES_REPOSITORIES'] = {branch_name: "https://localhost"}
+
+    with app.test_client() as client:
+        res = client.get(
+            f'/branch/{branch_name}/vuln-orphaned', headers={"Accept": accept})
+
+        assert res.status_code == 200
+        assert res.content_type == "application/json"
+
+        assert '@context' in res.json
+        assert res.json['id'] == 'https://localhost/branch/edge-main/vuln-orphaned'
+        assert res.json['items'] == []
