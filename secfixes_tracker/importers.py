@@ -200,6 +200,11 @@ def register(app):
     @click.argument('repo', required=False)
     def import_secfixes(repo: str):
         repositories = app.config.get('SECFIXES_REPOSITORIES', {})
+
+        if not repositories:
+            print("E: No SECFIXES_REPOSITORIES configured.")
+            exit(1)
+
         if repo:
             uri = repositories.get(repo)
             if uri:
@@ -271,6 +276,8 @@ def register(app):
         except Exception as e:
             print(
                 f'E: Encountered {e} while parsing security rejections feed.')
+            exit(1)
+
         db.session.commit()
 
     def import_security_rejections_package(repo: str, pkgname: str, cves: list):
