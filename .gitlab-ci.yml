@@ -6,6 +6,7 @@ test-default:
     - apk add python3 py3-flask py3-pytest py3-pytest-cov py3-pip py3-requests py3-yaml py3-dotenv py3-requests-mock
     - pip install -r requirements.txt
     - python3 -m pytest -v --cov=secfixes_tracker --cov-report term-missing tests/
+  coverage: /^TOTAL.+?(\d+\%)$/
   tags:
     - docker-alpine
     - x86_64
