@@ -3,12 +3,15 @@
 import pytest
 from secfixes_tracker.models import Vulnerability, VulnerabilityReference, Package, PackageVersion
 
+
 def test_vulnerability_create(db):
-    vuln = Vulnerability(cve_id="CVE-2023-12345", description="Test vulnerability")
+    vuln = Vulnerability(cve_id="CVE-2023-12345",
+                         description="Test vulnerability")
     db.session.add(vuln)
     db.session.commit()
 
-    retrieved_vuln = Vulnerability.query.filter_by(cve_id="CVE-2023-12345").first()
+    retrieved_vuln = Vulnerability.query.filter_by(
+        cve_id="CVE-2023-12345").first()
     assert repr(retrieved_vuln) == "<Vulnerability CVE-2023-12345>"
     assert retrieved_vuln.description == "Test vulnerability"
 
@@ -70,11 +73,13 @@ def test_vulnerability_to_nvd_severity(db):
 
     # Test when cvss3_score is equal to 8.0 (edge case)
     vuln = Vulnerability(cve_id='CVE-2023-0008', cvss3_score=8.0)
-    assert vuln.to_nvd_severity() == 'medium'  # it should still be medium since the condition checks for > 8.0 for high
+    # it should still be medium since the condition checks for > 8.0 for high
+    assert vuln.to_nvd_severity() == 'medium'
 
     # Test when cvss3_score is equal to 4.0 (edge case)
     vuln = Vulnerability(cve_id='CVE-2023-0009', cvss3_score=4.0)
-    assert vuln.to_nvd_severity() == 'low'  # it should be low since the condition checks for > 4.0 for medium
+    # it should be low since the condition checks for > 4.0 for medium
+    assert vuln.to_nvd_severity() == 'low'
 
     # Test when cvss3_score is less than 4.0
     vuln = Vulnerability(cve_id='CVE-2023-0010', cvss3_score=3.0)
@@ -100,7 +105,8 @@ def test_vulnerabilityreference_find_or_create(db):
     db.session.commit()
 
     # Try to find the added reference
-    existing_ref = VulnerabilityReference.find_or_create(vuln, ref_type, ref_uri)
+    existing_ref = VulnerabilityReference.find_or_create(
+        vuln, ref_type, ref_uri)
     assert existing_ref.vuln_ref_id == ref.vuln_ref_id
 
 
@@ -111,7 +117,8 @@ def test_vulnerabilityreference_json_ld_id(app, db):
 
     ref_uri = 'https://example.com/vulnerabilities/CVE-2023-0016'
     ref_type = 'web'
-    ref = VulnerabilityReference(vuln_id=vuln.vuln_id, ref_type=ref_type, ref_uri=ref_uri)
+    ref = VulnerabilityReference(
+        vuln_id=vuln.vuln_id, ref_type=ref_type, ref_uri=ref_uri)
     db.session.add(ref)
     db.session.commit()
 
@@ -127,7 +134,8 @@ def test_to_json_ld(app, db):
 
     ref_uri = 'https://example.com/vulnerabilities/CVE-2023-0017'
     ref_type = 'web'
-    ref = VulnerabilityReference(vuln_id=vuln.vuln_id, ref_type=ref_type, ref_uri=ref_uri)
+    ref = VulnerabilityReference(
+        vuln_id=vuln.vuln_id, ref_type=ref_type, ref_uri=ref_uri)
     db.session.add(ref)
     db.session.commit()
 
@@ -149,6 +157,7 @@ def test_package_create(db):
     assert retrieved_pkg is not None
     assert repr(retrieved_pkg) == "<Package testpkg>"
 
+
 def test_package_version_create(db):
     pkg = Package.query.filter_by(package_name="testpkg").first()
     if not pkg:
@@ -164,4 +173,3 @@ def test_package_version_create(db):
     assert retrieved_pkgver is not None
     assert repr(retrieved_pkgver) == "<PackageVersion testpkg-1.0.0>"
     assert retrieved_pkgver.repo == "main"
-
