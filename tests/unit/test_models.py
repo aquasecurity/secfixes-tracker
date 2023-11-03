@@ -173,3 +173,11 @@ def test_package_version_create(db):
     assert retrieved_pkgver is not None
     assert repr(retrieved_pkgver) == "<PackageVersion testpkg-1.0.0>"
     assert retrieved_pkgver.repo == "main"
+
+
+def test_package_create(db):
+    pkg = Package(package_name="testpkg")
+    db.session.add(pkg)
+    db.session.commit()
+
+    assert pkg.excluded is not None
