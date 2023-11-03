@@ -1,7 +1,7 @@
-from . import create_app, db
+from . import db
 from .version import APKVersion
 
-from flask import request
+from flask import request, current_app
 
 
 def register(app):
