@@ -1,17 +1,18 @@
-from . import app, db
+from . import db
 from .version import APKVersion
 
+from flask import request, current_app
 
-from flask import request
 
-
-@app.cli.command('init-db', help='Initializes the database.')
-def init_db():
-    db.create_all()
+def register(app):
+    @app.cli.command('init-db', help='Initializes the database.')
+    def init_db():
+        db.create_all()
 
 
 class Vulnerability(db.Model):
-    vuln_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, primary_key=True,
+                        index=True, autoincrement=True)
     cve_id = db.Column(db.String(80), index=True)
     description = db.Column(db.Text)
     cvss3_score = db.Column(db.Numeric)
@@ -50,8 +51,8 @@ class Vulnerability(db.Model):
             'id': self.json_ld_id,
             'description': self.description,
             'cvss3': {
-                 'score': float(self.cvss3_score) if self.cvss3_score else 0.0,
-                 'vector': self.cvss3_vector,
+                'score': float(self.cvss3_score) if self.cvss3_score else 0.0,
+                'vector': self.cvss3_vector,
             },
             'ref': [ref.to_json_ld() for ref in self.references],
             'state': [state.to_json_ld() for state in self.published_states],
@@ -64,8 +65,10 @@ class Vulnerability(db.Model):
 
 
 class VulnerabilityReference(db.Model):
-    vuln_ref_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
-    vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
+    vuln_ref_id = db.Column(db.Integer, primary_key=True,
+                            index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, db.ForeignKey(
+        'vulnerability.vuln_id'), nullable=False, index=True)
     vuln = db.relationship('Vulnerability', backref='references')
     ref_type = db.Column(db.String(80))
     ref_uri = db.Column(db.Text, index=True)
@@ -75,7 +78,8 @@ class VulnerabilityReference(db.Model):
 
     @classmethod
     def find_or_create(cls, vuln: Vulnerability, ref_type: str, ref_uri: str):
-        ref = cls.query.filter_by(vuln_id=vuln.vuln_id, ref_uri=ref_uri).first()
+        ref = cls.query.filter_by(
+            vuln_id=vuln.vuln_id, ref_uri=ref_uri).first()
 
         if not ref:
             ref = cls()
@@ -100,7 +104,8 @@ class VulnerabilityReference(db.Model):
 
 
 class Package(db.Model):
-    package_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
+    package_id = db.Column(db.Integer, primary_key=True,
+                           index=True, autoincrement=True)
     package_name = db.Column(db.Text)
 
     def __repr__(self):
@@ -127,7 +132,7 @@ class Package(db.Model):
 
     @property
     def excluded(self):
-        return self.package_name in app.config.get('PACKAGE_EXCLUSIONS', [])
+        return self.package_name in current_app.config.get('PACKAGE_EXCLUSIONS', [])
 
     @property
     def json_ld_id(self):
@@ -144,8 +149,10 @@ class Package(db.Model):
 
 
 class PackageVersion(db.Model):
-    package_version_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
-    package_id = db.Column(db.Integer, db.ForeignKey('package.package_id'), nullable=False, index=True)
+    package_version_id = db.Column(
+        db.Integer, primary_key=True, index=True, autoincrement=True)
+    package_id = db.Column(db.Integer, db.ForeignKey(
+        'package.package_id'), nullable=False, index=True)
     version = db.Column(db.String(80))
     package = db.relationship('Package', backref='versions')
     repo = db.Column(db.String(80), index=True)
@@ -157,7 +164,8 @@ class PackageVersion(db.Model):
 
     @classmethod
     def find_or_create(cls, package: Package, version: str, repo: str):
-        pkgver = cls.query.filter_by(package_id=package.package_id, version=version, repo=repo).first()
+        pkgver = cls.query.filter_by(
+            package_id=package.package_id, version=version, repo=repo).first()
 
         if not pkgver:
             pkgver = cls()
@@ -191,9 +199,12 @@ class PackageVersion(db.Model):
 
 
 class VulnerabilityState(db.Model):
-    vuln_state_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
-    vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
-    package_version_id = db.Column(db.Integer, db.ForeignKey('package_version.package_version_id'), nullable=False, index=True)
+    vuln_state_id = db.Column(
+        db.Integer, primary_key=True, index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, db.ForeignKey(
+        'vulnerability.vuln_id'), nullable=False, index=True)
+    package_version_id = db.Column(db.Integer, db.ForeignKey(
+        'package_version.package_version_id'), nullable=False, index=True)
     fixed = db.Column(db.Boolean)
     vuln = db.relationship('Vulnerability', backref='states')
     package_version = db.relationship('PackageVersion', backref='states')
@@ -230,9 +241,12 @@ class VulnerabilityState(db.Model):
 
 
 class CPEMatch(db.Model):
-    cpe_match_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
-    vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
-    package_id = db.Column(db.Integer, db.ForeignKey('package.package_id'), nullable=False, index=True)
+    cpe_match_id = db.Column(db.Integer, primary_key=True,
+                             index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, db.ForeignKey(
+        'vulnerability.vuln_id'), nullable=False, index=True)
+    package_id = db.Column(db.Integer, db.ForeignKey(
+        'package.package_id'), nullable=False, index=True)
     minimum_version = db.Column(db.String(80))
     minimum_version_op = db.Column(db.String(5))
     maximum_version = db.Column(db.String(80))
