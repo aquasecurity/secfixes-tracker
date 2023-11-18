@@ -5,88 +5,88 @@ import requests_mock
 import tarfile
 import yaml
 
-from unittest.mock import patch, mock_open
+from unittest.mock import patch, MagicMock
 from secfixes_tracker.models import Vulnerability, Package, PackageVersion, VulnerabilityState, CPEMatch
 
 
 def test_import_nvd_command(runner):
     # Sample mock data (replace with an actual sample for your test)
     sample_data = {
-        "CVE_Items": [
+        "vulnerabilities": [
             {
                 "cve": {
-                    "CVE_data_meta": {"ID": "sample_cve_id"},
-                    "description": {
-                        "description_data": [{"value": "Sample CVE Description"}]
-                    },
-                    "references": {
-                        "reference_data": [
-                            {
-                                "refsource": "example",
-                                "url": "http://example.com",
-                                "tags": ["tag1", "tag2"]
-                            }
-                        ]
-                    }
-                },
-                "configurations": {
-                    "nodes": [
+                    "id": "CVE-0000-12345",
+                    "descriptions": [
+                        {"lang": "en", "value": "Sample CVE Description"}
+                    ],
+                    "references": [
                         {
-                            "cpe_match": [
+                            "source": "example",
+                            "url": "http://example.com",
+                            "tags": ["tag1", "tag2"]
+                        }
+                    ],
+                    "configurations": [
+                        {
+                            "nodes": [
                                 {
-                                    "cpe23Uri": "cpe:2.3:o:canonical:ubuntu_linux:12.04:*:*:*:lts:*:*:*",
-                                    "vulnerable": True,
-                                    "versionStartIncluding": "5.5.0",
-                                    "versionEndIncluding": "5.5.43"
+                                    "cpeMatch": [
+                                        {
+                                            "criteria": "cpe:2.3:o:canonical:ubuntu_linux:12.04:*:*:*:lts:*:*:*",
+                                            "vulnerable": True,
+                                            "versionStartIncluding": "5.5.0",
+                                            "versionEndIncluding": "5.5.43"
+                                        }
+                                    ]
                                 }
                             ]
                         }
-                    ]
-                },
-                "impact": {
-                    "baseMetricV3": {
-                        "cvssV3": {
-                            "baseScore": 5.0,
-                            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N"
+                    ],
+                    "metrics": {
+                        "cvssMetricV31": {
+                            "cvssV3": {
+                                "baseScore": 5.0,
+                                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N"
+                            }
                         }
                     }
-                }
+                },
             },
             {"foo": "missing 'cve'"},
-            {"cve": {"CVE_data_meta": {"foo": "missing ID"}}},
-            {"cve": {"CVE_data_meta": {"ID": "missing description"}}},
+            {"cve": {"foo": "missing id"}},
+            {"cve": {"id": "missing descriptions"}},
             {
                 "cve": {
-                    "CVE_data_meta": {"ID": "CVE-5678"},
-                    "description": {
-                        "description_data": [{"value": "Sample CVE without URL"}]
-                    },
-                    "references": {
-                        "reference_data": [
-                            {
-                                "refsource": "missing url",
-                                "tags": ["tag1", "tag2"]
-                            }
-                        ]
-                    }
+                    "id": "CVE-5678",
+                    "descriptions": [{"lang": "en", "value": "Sample CVE without URL"}],
+                    "references": [
+                        {
+                            "source": "missing url",
+                            "tags": ["tag1", "tag2"]
+                        }
+                    ]
                 },
             }
         ]
     }
 
-    compressed_data = gzip.compress(json.dumps(sample_data).encode())
-
     with patch('requests.get') as mock_get:
-        mock_get.return_value.content = compressed_data
+        mock_get.return_value.json = MagicMock(return_value=sample_data)
 
-        result = runner.invoke(args=["import-nvd", "sample_name"])
+        result = runner.invoke(args=["import-nvd", "1"])
 
     # Ensure the command completed without errors
-    assert result.exit_code == 0
+    if not result.exception is None:
+        import traceback
+        traceback.print_exception(result.exception)
 
-    vuln = Vulnerability.query.filter_by(cve_id="sample_cve_id").first()
+    assert result.exit_code == 0, result.exception
+
+    vuln = Vulnerability.query.filter_by(cve_id="CVE-0000-12345").first()
     assert vuln is not None
     assert vuln.description == "Sample CVE Description"
+    assert len(vuln.cpe_matches) > 0, result.output
+    assert vuln.cpe_matches[0].cpe_uri == "cpe:2.3:o:canonical:ubuntu_linux:12.04:*:*:*:lts:*:*:*"
 
 
 def test_import_nvd_command_no_cve_items(runner):
