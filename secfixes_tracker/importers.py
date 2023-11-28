@@ -1,4 +1,5 @@
 import click
+import datetime
 import json
 import gzip
 import requests
@@ -11,6 +12,7 @@ from io import TextIOWrapper
 from . import db
 from .models import Vulnerability, Package, PackageVersion, VulnerabilityState, CPEMatch, VulnerabilityReference
 from .version import APKVersion
+from . import nvd
 
 
 def rewrite_python(x): return 'py3-' + x.replace('_', '-').lower()
@@ -34,32 +36,29 @@ LANGUAGE_REWRITERS = {
 
 def register(app):
     @app.cli.command('import-nvd', help='Import a NVD feed.')
-    @click.argument('name')
-    def import_nvd_cve(name: str):
-        uri = f'https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-{name}.json.gz'
+    @click.argument('days')
+    def import_nvd_cve(days: str):
+        api = nvd.API()
 
-        print(f'I: Importing NVD feed [{name}] from [{uri}].')
+        print(f'I: Importing NVD changes from {days} day(s) ago')
 
-        r = requests.get(uri)
-        payload = r.content
+        cve_resp = api.cves(
+            last_mod_start_date=datetime.datetime.now() - datetime.timedelta(days=int(days)),
+            last_mod_end_date=datetime.datetime.now(),
+        )
 
-        print(f'I: Downloaded {len(payload)} bytes.')
-
-        data = gzip.decompress(payload).decode()
-        data = json.loads(data)
-
-        if 'CVE_Items' not in data:
-            print(f'E: CVE_Items not found in NVD feed.')
+        if 'vulnerabilities' not in cve_resp:
+            print(f"E: 'vulnerabilities' not found in NVD feed.")
             exit(1)
 
-        for item in data['CVE_Items']:
+        for item in cve_resp['vulnerabilities']:
             process_nvd_cve_item(item)
 
         db.session.commit()
         print(f'I: Imported NVD feed successfully.')
 
     def process_nvd_cve_reference(vuln: Vulnerability, item: dict):
-        ref_type = item['refsource']
+        ref_type = item['source']
         ref_tags = item.get('tags', [])
 
         ref_uri = item.get('url', None)
@@ -80,39 +79,38 @@ def register(app):
             return
 
         cve = item['cve']
-        cve_meta = cve.get('CVE_data_meta', {})
-        cve_id = cve_meta.get('ID', None)
+        cve_id = cve.get('id', None)
 
         if not cve_id:
             return
 
-        cve_description = cve.get('description', {}).get(
-            'description_data', [])
+        cve_description = select(
+            cve.get('descriptions', []),
+            lambda desc: desc['lang'] == "en"
+        ).get('value', [])
         if not cve_description:
             return
 
-        cve_description_text = cve_description[0]['value']
         print(f'I: Processing {cve_id}.')
 
-        impact = item.get('impact', {}).get(
-            'baseMetricV3', {}).get('cvssV3', {})
+        impact = item.get('metrics', {}).get(
+            'cvssMetricV31', {}).get('cvssData', {})
 
         cvss3_score = impact.get('baseScore', None)
         cvss3_vector = impact.get('vectorString', None)
 
         vuln = Vulnerability.find_or_create(cve_id)
-        vuln.description = cve_description_text
+        vuln.description = cve_description
         vuln.cvss3_score = cvss3_score
         vuln.cvss3_vector = cvss3_vector
 
         db.session.add(vuln)
 
-        if 'configurations' in item:
-            process_nvd_cve_configurations(vuln, item['configurations'])
+        if 'configurations' in cve and len(cve['configurations']) > 0:
+            process_nvd_cve_configurations(vuln, cve['configurations'][0])
 
         if 'references' in cve:
-            process_nvd_cve_references(
-                vuln, cve['references']['reference_data'])
+            process_nvd_cve_references(vuln, cve['references'])
 
     def match_uses_version_ranges(match: dict) -> bool:
         version_match_keywords = {
@@ -126,18 +124,18 @@ def register(app):
             return
 
         nodes = configuration['nodes']
-        if not nodes or 'cpe_match' not in nodes[0]:
+        if not nodes or 'cpeMatch' not in nodes[0]:
             return
 
-        cpe_match = nodes[0]['cpe_match']
+        cpe_match = nodes[0]['cpeMatch']
 
         for match in cpe_match:
-            if 'cpe23Uri' not in match:
+            if 'criteria' not in match:
                 continue
 
             # if vulnerable is not specified, assume True.  maintainer can override
             # by adding a secfixes-override entry in their APKBUILD.
-            cpe_uri = match.get('cpe23Uri')
+            cpe_uri = match.get('criteria')
             vulnerable = match.get('vulnerable', True)
 
             cpe_parts = cpe_uri.split(':')[3:6]
@@ -430,3 +428,10 @@ def register(app):
 
         vuln_state.fixed = fixed
         db.session.add(vuln_state)
+
+
+def select(lst, predicate):
+    for elem in lst:
+        if predicate(elem):
+            return elem
+    return {}
