@@ -8,7 +8,7 @@ VersionGreater = 4
 VersionFuzzy = 8
 
 
-libapk = cdll.LoadLibrary('libapk.so.3.12.0')
+libapk = cdll.LoadLibrary('libapk.so.2.14.0')
 
 
 def do_compare(ver1: str, ver2: str, ops: int):
