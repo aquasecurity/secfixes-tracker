@@ -3,6 +3,7 @@ module gitlab.alpinelinux.org/alpine/security/secfixes-tracker
 go 1.20
 
 require (
+	github.com/expr-lang/expr v1.16.7
 	github.com/moznion/go-optional v0.11.0
 	github.com/stretchr/testify v1.8.4
 )
