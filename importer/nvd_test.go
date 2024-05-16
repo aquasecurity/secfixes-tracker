@@ -19,6 +19,7 @@ func TestBuildUrlReturnsValidUrl(t *testing.T) {
 	require.NotEmpty(result)
 
 	parsedUrl, err := url.Parse(result)
+	require.NoError(err)
 	require.Equal("example.com", parsedUrl.Host)
 	require.Equal("/api/test/", parsedUrl.Path)
 	require.Equal("https", parsedUrl.Scheme)
@@ -31,6 +32,7 @@ func TestBuildUrlNoRejected(t *testing.T) {
 	require.NoError(err)
 
 	url, err := url.Parse(result)
+	require.NoError(err)
 	query := url.Query()
 
 	require.Contains(query, "noRejected", "Query parementer noRejected should be present")
@@ -47,6 +49,7 @@ func TestBuildUrlPubStart(t *testing.T) {
 	require.NoError(err)
 
 	url, err := url.Parse(result)
+	require.NoError(err)
 	query := url.Query()
 	pubStart := query.Get("pubStartDate")
 
@@ -64,6 +67,7 @@ func TestBuildUrlPubStartSetsPubEndIfMissing(t *testing.T) {
 	require.NoError(err)
 
 	url, err := url.Parse(result)
+	require.NoError(err)
 	query := url.Query()
 	pubEnd := query.Get("pubEndDate")
 
@@ -84,6 +88,7 @@ func TestBuildUrlPubStartDoesNotOverwriteExistingPubEnd(t *testing.T) {
 	require.NoError(err)
 
 	url, err := url.Parse(result)
+	require.NoError(err)
 	query := url.Query()
 	pubEnd := query.Get("pubEndDate")
 
@@ -101,6 +106,7 @@ func TestBuildUrlPubEnd(t *testing.T) {
 	require.NoError(err)
 
 	url, err := url.Parse(result)
+	require.NoError(err)
 	query := url.Query()
 	pubStart := query.Get("pubEndDate")
 
@@ -118,6 +124,7 @@ func TestBuildUrlPubEndSetsPubEndIfMissing(t *testing.T) {
 	require.NoError(err)
 
 	url, err := url.Parse(result)
+	require.NoError(err)
 	query := url.Query()
 	pubEnd := query.Get("pubStartDate")
 
@@ -138,6 +145,7 @@ func TestBuildUrlPubEndDoesNotOverwriteExistingPubEnd(t *testing.T) {
 	require.NoError(err)
 
 	url, err := url.Parse(result)
+	require.NoError(err)
 	query := url.Query()
 	pubEnd := query.Get("pubStartDate")
 
@@ -151,6 +159,7 @@ func TestBuildUrlStartIndex(t *testing.T) {
 	require.NoError(err)
 
 	url, err := url.Parse(result)
+	require.NoError(err)
 	query := url.Query()
 
 	startIndex := query.Get("startIndex")
@@ -165,6 +174,7 @@ func TestBuildUrlResultsPerPage(t *testing.T) {
 	require.NoError(err)
 
 	url, err := url.Parse(result)
+	require.NoError(err)
 	query := url.Query()
 
 	resultsPerPage := query.Get("resultsPerPage")

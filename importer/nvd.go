@@ -16,13 +16,13 @@ import (
 const NVDEndpoint = "https://services.nvd.nist.gov/rest/json/%s/2.0"
 
 type NVDCVEResponse struct {
-	ResultsPerPage  int             `json:"resultsPerPage"`
-	StartIndex      int             `json:"startIndex"`
-	TotalResults    int             `json:"totalResults"`
 	Format          string          `json:"format"`
 	Version         string          `json:"version"`
 	Timestamp       string          `json:"timestamp"`
 	Vulnerabilities []Vulnerability `json:"vulnerabilities"`
+	ResultsPerPage  int             `json:"resultsPerPage"`
+	StartIndex      int             `json:"startIndex"`
+	TotalResults    int             `json:"totalResults"`
 }
 
 type Vulnerability struct {
@@ -100,8 +100,8 @@ type Configuration struct {
 
 type Node struct {
 	Operator string     `json:"operator"`
-	Negate   bool       `json:"negate"`
 	CPEMatch []CPEMatch `json:"cpeMatch"`
+	Negate   bool       `json:"negate"`
 }
 
 type CPE23Uri struct {
@@ -163,19 +163,21 @@ func (c *CPE23Uri) UnmarshalJSON(data []byte) error {
 	if c == nil {
 		c = &CPE23Uri{}
 	}
-	c.fromUri(uri)
+	if err := c.fromUri(uri); err != nil {
+		return fmt.Errorf("cpe23uri: could not unmarshal data: %w", err)
+	}
 
 	return nil
 }
 
 type CPEMatch struct {
-	Vulnerable            bool                    `json:"vulnerable"`
 	Criteria              CPE23Uri                `json:"criteria"`
+	MatchCriteriaId       string                  `json:"matchCriteriaId"`
 	VersionStartExcluding optional.Option[string] `json:"versionStartExcluding"`
 	VersionStartIncluding optional.Option[string] `json:"versionStartIncluding"`
 	VersionEndExcluding   optional.Option[string] `json:"versionEndExcluding"`
 	VersionEndIncluding   optional.Option[string] `json:"versionEndIncluding"`
-	MatchCriteriaId       string                  `json:"matchCriteriaId"`
+	Vulnerable            bool                    `json:"vulnerable"`
 }
 
 func (c CPEMatch) UsesVersionRanges() bool {
@@ -207,8 +209,8 @@ type Reference struct {
 }
 
 type APIv2 struct {
-	once     sync.Once
 	Endpoint string
+	once     sync.Once
 }
 
 func (a *APIv2) init() {
