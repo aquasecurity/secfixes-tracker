@@ -40,7 +40,7 @@ func run() error {
 		Level: slog.LevelInfo,
 	}))
 	slog.SetDefault(logger)
-	config, err := secfixes.ParseConfigFromFile("application.toml")
+	config, err := secfixes.ParseConfigFromFile("config/application.toml")
 	if err != nil {
 		return fmt.Errorf("error reading 'application.toml': %w", err)
 	}
@@ -49,7 +49,8 @@ func run() error {
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
 		},
-		PrepareStmt: true,
+		PrepareStmt:            true,
+		SkipDefaultTransaction: true,
 	})
 	if err != nil {
 		return fmt.Errorf("could not open secfixes.db: %w", err)

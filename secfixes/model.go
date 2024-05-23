@@ -15,12 +15,12 @@ type Package struct {
 	PackageID   int        `gorm:"primaryKey"`
 }
 
-// type VulnerabilityReference struct {
-// 	VulnRefID int
-// 	VulnID    int
-// 	RefType   string
-// 	RefUrl    string
-// }
+type VulnerabilityReference struct {
+	RefType   string
+	RefUri    string
+	VulnRefID int `gorm:"primaryKey"`
+	VulnID    int
+}
 
 // type PackageVersion struct {
 // 	PackageVersionID int

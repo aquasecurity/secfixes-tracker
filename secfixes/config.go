@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -11,12 +12,21 @@ import (
 type Config struct {
 	DBPath    string `toml:"db_path"`
 	Rewriters []Rewriter
+	Importers Importers
 }
 
 type Rewriter struct {
 	Field       string
 	Predicate   string
 	RewriteRule string `toml:"rewrite_rule"`
+}
+
+type Importers struct {
+	Vulnrich Vulnrich
+}
+
+type Vulnrich struct {
+	LookupPeriod time.Duration `toml:"lookup_period"`
 }
 
 func ParseConfig(config io.Reader) (c Config, err error) {
