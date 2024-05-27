@@ -1,0 +1,65 @@
+# Options for analysis running
+[run]
+  concurrency = 4
+  timeout = "10m"
+
+# All available settings of specific linters
+[linters-settings]
+  [linters-settings.misspell]
+    locale = "US"
+  [linters-settings.unused]
+    # Treat code as a program (not a library) and report unused exported identifiers
+    check-exported = false
+  [linters-settings.gocritic]
+    enabled-tags = ["diagnostic", "style", "performance"]
+    disabled-checks = ["importShadow", "appendAssign"]
+    [linters-settings.gocritic.settings]
+      hugeParam.sizeThreshold = 1000
+      rangeValCopy.sizeThreshold = 1000
+  [linters-settings.govet]
+    enable-all = true
+    disable = [
+      "shadow"
+    ]
+  [[linters-settings.revive.rules]]
+    name = "var-naming"
+    arguments = [
+      [],
+      [],
+      [{skipPackageNameChecks = true}]
+    ]
+  [[linters-settings.revive.rules]]
+    name = "unused-parameter"
+    disabled = true
+
+[linters]
+  enable = [
+    "gocritic",
+    "asciicheck",
+    "dogsled",
+    "errorlint",
+    "exportloopref",
+    "goconst",
+    "gosimple",
+    "govet",
+    "ineffassign",
+    "misspell",
+    "nakedret",
+    "nolintlint",
+    "staticcheck",
+    "typecheck",
+    "unconvert",
+    "unused",
+    "whitespace",
+    "gci",
+    "gofumpt",
+    "wastedassign",
+  ]
+  disable = [
+    "errcheck"
+  ]
+  disable-all = false
+  fast = false
+
+[issues]
+  fix = true
