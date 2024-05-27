@@ -18,6 +18,13 @@ python:test:
         path: coverage.xml
   tags: [docker-alpine, x86_64]
 
+go:lint:
+  stage: verify
+  image: golangci/golangci-lint:v1.58.1
+  script:
+    - golangci-lint run
+  tags: [docker-alpine, x86_64]
+
 go:build:
   stage: verify
   image: registry.alpinelinux.org/alpine/infra/docker/golang:3.20
