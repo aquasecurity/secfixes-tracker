@@ -26,6 +26,10 @@ You will need to then set these env variables to something useful:
 
 Once done, initialize the database with `flask init-db`.
 
+## Build
+
+Optionally, run `make` to build `secfixes-cli`. This requires `go` to be installed.
+
 ## Tasks
 
 Once the environment is configured, you can run various tasks:
@@ -54,6 +58,10 @@ Imports an NVD feed, such as `2021` or `recent`.
 Once the yearly feeds have been imported, you only need to import the `recent` feed
 on a daily basis.
 
+### `./secfixes-cli import-vulnrich`
+
+Imports CVE details from https://github.com/cisagov/vulnrich.
+
 ### `flask update-states [repo]`
 
 Updates the various `VulnerabilityState` items based on the current contents of
@@ -77,6 +85,36 @@ CUSTOM_REWRITERS = {
 Will define a rewriter which matches any package published by the 'jenkins' CPE
 vendor and outputs 'jenkins' (as all jenkins components are in the `jenkins` source
 package in Alpine).
+
+### Secfixes-cli
+
+`secfixes-cli` has a new rewriting enginge that offers more flexibility. The
+rules are based in [expr](https://expr-lang.org/docs/getting-started), and
+provided through `application.toml`.
+
+An example rule looks like:
+
+```
+[[rewriters]]
+predicate = "target_sw == 'python'"
+rewrite_rule = "product | lower() | replace('_', '-') | fmt('py3-%s')"
+```
+
+`predicate` determines whether the rule applies, while `rewrite_rule` determines
+how the cpe should be rewritten. An optional third option called `field`
+specifies what field of the CPE will be rewritten. If not provided, it defaults
+to `product`.
+
+The following variables are available in the environment of the expressions:
+
+- `vendor`
+- `product`
+- `target_sw`
+- `version`
+
+`fmt` is implemented with `fmt.Sprintf`, but takes only 2 arguments. The first
+argument is either a string, or a slice. This makes it possible to use it with
+pipes.
 
 ## Cron
 
