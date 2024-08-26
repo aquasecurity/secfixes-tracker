@@ -349,9 +349,6 @@ def register(app):
         db.session.commit()
 
     def import_apkindex_payload(repo: str, file):
-        PackageVersion.query.filter_by(repo=repo).update(dict(published=False))
-        db.session.commit()
-
         print(f'I: [{repo}] Processing APKINDEX')
 
         with tarfile.open(mode='r', fileobj=file, debug=3) as tf:
