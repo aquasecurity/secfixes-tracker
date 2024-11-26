@@ -60,7 +60,7 @@ on a daily basis.
 
 ### `./secfixes-cli import-vulnrich`
 
-Imports CVE details from https://github.com/cisagov/vulnrich.
+Imports CVE details from https://github.com/cisagov/vulnrichment.
 
 ### `flask update-states [repo]`
 
