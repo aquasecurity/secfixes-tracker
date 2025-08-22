@@ -42,6 +42,8 @@ func run() error {
 		return err
 	}
 
+	rootCmd.SilenceUsage = true
+	rootCmd.SilenceErrors = true
 	err = rootCmd.Execute()
 	if err != nil {
 		return err
