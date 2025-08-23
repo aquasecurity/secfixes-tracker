@@ -27,8 +27,8 @@ func NVDFeed(
 	}
 	slog.Info("Importing NVD change feed", "period", period)
 
-	start := time.Date(2023, 7, 4, 0, 0, 0, 0, time.UTC)
-	end := time.Date(2023, 7, 12, 0, 0, 0, 0, time.UTC)
+	start := time.Now().UTC().Add(-period).Truncate(24 * time.Hour)
+	end := time.Now().UTC().Truncate(24 * time.Hour)
 	slog.Info("Requesting CVEs", "starttime", start, "endtime", end)
 	resp, err := nvdApi.GetCVEs(
 		PubStart(start),
