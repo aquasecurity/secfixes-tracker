@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.alpinelinux.org/alpine/security/secfixes-tracker/secfixes"
 	"gorm.io/gorm"
+	gormLogger "gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 )
 
@@ -36,30 +37,44 @@ func main() {
 }
 
 func run() error {
+	var err error
+	_app, err = initApp()
+	if err != nil {
+		return err
+	}
+
+	rootCmd.SilenceUsage = true
+	rootCmd.SilenceErrors = true
+	err = rootCmd.Execute()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func initApp() (app, error) {
+	var app app
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	slog.SetDefault(logger)
 	config, err := secfixes.ParseConfigFromFile("config/application.toml")
 	if err != nil {
-		return fmt.Errorf("error reading 'application.toml': %w", err)
+		return app, fmt.Errorf("error reading 'application.toml': %w", err)
 	}
-	_app.Config = config
+	app.Config = config
 	db, err := gorm.Open(sqlite.Open(config.DBPath), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
 		},
 		PrepareStmt:            true,
 		SkipDefaultTransaction: true,
+		Logger:                 gormLogger.Default.LogMode(gormLogger.Silent),
 	})
 	if err != nil {
-		return fmt.Errorf("could not open secfixes.db: %w", err)
+		return app, fmt.Errorf("could not open secfixes.db: %w", err)
 	}
-	_app.DB = db
+	app.DB = db
 
-	err = rootCmd.Execute()
-	if err != nil {
-		return err
-	}
-	return nil
+	return app, nil
 }
