@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"gitlab.alpinelinux.org/alpine/security/secfixes-tracker/secfixes"
 	"gorm.io/gorm"
+	gormLogger "gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 )
 
@@ -68,6 +69,7 @@ func initApp() (app, error) {
 		},
 		PrepareStmt:            true,
 		SkipDefaultTransaction: true,
+		Logger:                 gormLogger.Default.LogMode(gormLogger.Silent),
 	})
 	if err != nil {
 		return app, fmt.Errorf("could not open secfixes.db: %w", err)
