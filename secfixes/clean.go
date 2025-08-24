@@ -36,3 +36,39 @@ func CleanupRepo(
 	}
 	return nil
 }
+
+func CleanVulnStatesByCve(
+	cveID string,
+	dryRun bool,
+	db *gorm.DB,
+) error {
+	tx := db.Begin()
+
+	var vulnerabilityStates []VulnerabilityState
+	tx.
+		InnerJoins("Vulnerability", db.Where(&Vulnerability{CveID: cveID})).
+		Joins("PackageVersion").
+		Joins("PackageVersion.Package").
+		Find(&vulnerabilityStates)
+
+	fmt.Printf("Found %d vulnerability states\n", len(vulnerabilityStates))
+
+	for _, vulnerabilityState := range vulnerabilityStates {
+		fmt.Printf(
+			"- %s, repo: %s, fixed: %d\n",
+			vulnerabilityState.PackageVersion.Package.PackageName,
+			vulnerabilityState.PackageVersion.Repo,
+			vulnerabilityState.Fixed,
+		)
+	}
+
+	if !dryRun {
+		tx.Delete(&vulnerabilityStates)
+		tx.Commit()
+		if tx.Error != nil {
+			return fmt.Errorf("could not delete records: %w", tx.Error)
+		}
+	}
+
+	return nil
+}
