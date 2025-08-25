@@ -21,6 +21,12 @@ var dbCleanRepoCmd = &cobra.Command{
 	RunE:  runDBCleanRepo,
 }
 
+var dbCleanVulnStatesCmd = &cobra.Command{
+	Use:   "cve-vuln-state <cve-id>",
+	Short: "Remove all vulnerability states for a specific CVE",
+	RunE:  runDBCleanVulnStateCVE,
+}
+
 var gcFlags = struct {
 	dryRun bool
 }{}
@@ -45,6 +51,20 @@ func runDBCleanRepo(cmd *cobra.Command, args []string) error {
 	)
 }
 
+func runDBCleanVulnStateCVE(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return cmd.Usage()
+	}
+
+	cveID := args[0]
+
+	return secfixes.CleanVulnStatesByCve(
+		cveID,
+		gcFlags.dryRun,
+		_app.DB,
+	)
+}
+
 func runDBMigrate(cmd *cobra.Command, args []string) error {
 	return _app.DB.AutoMigrate(
 		&secfixes.Vulnerability{},
@@ -60,6 +80,7 @@ func init() {
 	dbCmd.PersistentFlags().BoolVarP(&gcFlags.dryRun, "dry-run", "n", false, "Only show the amount of records found")
 
 	dbCleanCmd.AddCommand(dbCleanRepoCmd)
+	dbCleanCmd.AddCommand(dbCleanVulnStatesCmd)
 	dbCmd.AddCommand(dbCleanCmd)
 	dbCmd.AddCommand(dbMigrateCmd)
 	rootCmd.AddCommand(dbCmd)

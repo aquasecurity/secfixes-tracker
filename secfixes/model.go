@@ -30,9 +30,10 @@ type PackageVersion struct {
 	Repo                string               `gorm:"type:varchar(80);index:ix_package_version_repo"`
 	Maintainer          string               `gorm:"index:ix_package_version_maintainer"`
 	VulnerabilityStates []VulnerabilityState `gorm:"foreignKey:vuln_id"`
-	PackageVersionID    int                  `gorm:"primaryKey;not null;index:ix_package_version_package_version_id"`
-	PackageID           int                  `gorm:"not null;index:ix_package_version_package_id"`
-	Published           bool                 `gorm:"type:boolean;index:ix_package_version_published;check:published IN (0, 1)"`
+	Package             Package
+	PackageVersionID    int  `gorm:"primaryKey;not null;index:ix_package_version_package_version_id"`
+	PackageID           int  `gorm:"not null;index:ix_package_version_package_id"`
+	Published           bool `gorm:"type:boolean;index:ix_package_version_published;check:published IN (0, 1)"`
 }
 
 type CPEMatch struct {
@@ -48,6 +49,8 @@ type CPEMatch struct {
 }
 
 type VulnerabilityState struct {
+	Vulnerability    Vulnerability `gorm:"foreignKey:vuln_id;references:vuln_id"`
+	PackageVersion   PackageVersion
 	VulnStateID      int `gorm:"primaryKey;not null;index:ix_vulnerability_state_vuln_state_id"`
 	VulnID           int `gorm:"not null;index:ix_vulnerability_state_vuln_id"`
 	PackageVersionID int `gorm:"index:ix_vulnerability_state_package_version_id"`
