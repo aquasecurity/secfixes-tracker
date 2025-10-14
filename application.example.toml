@@ -1,0 +1,16 @@
+db_path = "secfixes-tracker.sqlite"
+
+[importers.vulnrich]
+lookup_period = "48h"
+
+[[rewriters]]
+predicate = "target_sw == 'python'"
+rewrite_rule = "product | lower() | replace('_', '-') | fmt('py3-%s')"
+
+[[rewriters]]
+predicate = "target_sw == 'ruby'"
+rewrite_rule = "product | lower() | replace('_', '-') | fmt('ruby-%s')"
+
+[[rewriters]]
+predicate = "target_sw == 'wordpress'"
+rewrite_rule = "product | lower() | replace('_', '-') | fmt('wordpress-%s')"

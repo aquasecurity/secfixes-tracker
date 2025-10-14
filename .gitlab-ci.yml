@@ -1,0 +1,33 @@
+stages:
+  - verify
+
+python:test:
+  image: alpine:3.20
+  stage: verify
+  script:
+    - apk upgrade -U -a
+    - apk add python3 py3-flask py3-pytest py3-pytest-cov py3-pip py3-requests py3-yaml py3-dotenv py3-requests-mock
+    - pip install --break-system-packages -r requirements.txt
+    - python3 -m pytest -v --cov=secfixes_tracker --cov-report term-missing --cov-report xml tests/
+  coverage: /^TOTAL.+?(\d+\%)$/
+  artifacts:
+    expire_in: 30 days
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+  tags: [docker-alpine, x86_64]
+
+go:lint:
+  stage: verify
+  image: golangci/golangci-lint:v1.58.1
+  script:
+    - golangci-lint run
+  tags: [docker-alpine, x86_64]
+
+go:build:
+  stage: verify
+  image: registry.alpinelinux.org/alpine/infra/docker/golang:3.20
+  script:
+    - redo
+  tags: [docker-alpine, x86_64]
