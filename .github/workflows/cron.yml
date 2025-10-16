@@ -13,36 +13,62 @@ jobs:
     env:
       FLASK_APP: secfixes_tracker
       SECFIXES_TRACKER_CONFIG: application.cfg
+
     steps:
       - name: Check out code
         uses: actions/checkout@v2
-      - name: Install dependencies
+
+      - name: Install system dependencies
         run: |
-          apk add alpine-sdk gcc musl-dev libc-dev
-          pip3 install -r requirements.txt
+          apk add --no-cache alpine-sdk gcc musl-dev libc-dev apk-tools
+          # Find actual libapk file and create unversioned symlink for Python ctypes
+          LIBAPK_FILE=$(find /usr/lib /lib -name "libapk.so.*" 2>/dev/null | head -1)
+          if [ -n "$LIBAPK_FILE" ]; then
+            LIBAPK_DIR=$(dirname "$LIBAPK_FILE")
+            ln -sf "$LIBAPK_FILE" "$LIBAPK_DIR/libapk.so"
+            echo "Created libapk.so symlink: $LIBAPK_DIR/libapk.so -> $LIBAPK_FILE"
+          else
+            echo "ERROR: No libapk.so.* file found!"
+            exit 1
+          fi
+          # Set library path for Python ctypes
+          echo "LD_LIBRARY_PATH=/usr/lib:/lib" >> $GITHUB_ENV
+
+      - name: Install Python dependencies
+        run: pip3 install -r requirements.txt
+
       - name: Initialize DB
         run: flask init-db
+
       - name: Import APKINDEX
         run: flask import-apkindex
+
       - name: Import secfixes
         run: flask import-secfixes
-      - name: Import NVD
-        run: |
-          for year in $(seq 2018 $(date "+%Y"))
-          do
-            flask import-nvd $year
-          done
+
+      # NVD JSON 1.1 feeds were retired by NVD in December 2023
+      # TODO: Update to NVD API 2.0 or use Go importer
+      # - name: Import NVD
+      #   run: |
+      #     for year in $(seq 2018 $(date "+%Y")); do
+      #       flask import-nvd $year
+      #     done
+
       - name: Update states
         run: flask update-states
+
       - name: Clean existing files
         run: rm -rf data && mkdir data
+
       - name: Export JSON files
         run: flask export
+
       - name: Compress
         run: |
           tar cvfz all.tar.gz data
           mkdir -p public
           mv all.tar.gz public
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
