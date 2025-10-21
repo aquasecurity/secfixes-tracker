@@ -148,7 +148,7 @@ def register(app):
             package_id=p.package_id, version=version).first_or_404()
         return jsonify(pv.to_json_ld())
 
-    @app.cli.command('export', help='Export JSON files to data directory.')
+    @app.cli.command('export', help='Export individual CVE JSON files to data directory.')
     def export_data():
         import os
         import json
@@ -160,8 +160,19 @@ def register(app):
         
         # Create a mock request context for JSON-LD generation
         with current_app.test_request_context():
-            # Export vulnerabilities
+            # Export individual CVE files
             vulnerabilities = Vulnerability.query.all()
+            for vuln in vulnerabilities:
+                # Extract CVE ID from the vulnerability
+                cve_id = vuln.cve_id
+                if cve_id:
+                    # Create individual CVE file
+                    cve_data = vuln.to_json_ld()
+                    filename = f"data/{cve_id}.json"
+                    with open(filename, 'w') as f:
+                        json.dump(cve_data, f, indent=2)
+            
+            # Also export consolidated files for reference
             vuln_data = [v.to_json_ld() for v in vulnerabilities]
             with open('data/vulnerabilities.json', 'w') as f:
                 json.dump(vuln_data, f, indent=2)
@@ -184,4 +195,4 @@ def register(app):
             with open('data/vulnerability_states.json', 'w') as f:
                 json.dump(state_data, f, indent=2)
         
-        print("Export completed successfully!")
+        print(f"Export completed successfully! Created {len(vulnerabilities)} individual CVE files.")
