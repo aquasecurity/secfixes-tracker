@@ -18,4 +18,11 @@ def create_app(testing=False):
     app.config["SECFIXES_TRACKER_VERSION"] = "0.7.1"
 
     db.init_app(app)
+    
+    # Register CLI commands
+    from . import models, importers, views
+    models.register(app)
+    importers.register(app)
+    views.register(app)
+    
     return app
