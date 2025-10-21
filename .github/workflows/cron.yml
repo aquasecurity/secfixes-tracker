@@ -46,13 +46,10 @@ jobs:
       - name: Import secfixes
         run: flask import-secfixes
 
-      # NVD JSON 1.1 feeds were retired by NVD in December 2023
-      # TODO: Update to NVD API 2.0 or use Go importer
-      # - name: Import NVD
-      #   run: |
-      #     for year in $(seq 2018 $(date "+%Y")); do
-      #       flask import-nvd $year
-      #     done
+      - name: Import NVD
+        run: |
+          # Use NVD API 2.0 with Python importer
+          flask import-nvd --days 30
 
       - name: Update states
         run: flask update-states
