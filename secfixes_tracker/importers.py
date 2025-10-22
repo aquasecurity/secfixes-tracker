@@ -73,10 +73,10 @@ def register(app):
                     else:
                         print(f'I: No CVEs found in chunk {chunk_count + 1}')
                     
-                    # Rate limiting: wait between requests
-                    print(f'I: Waiting 2 seconds before next chunk...')
+                    # Brief pause between chunks (API key allows faster processing)
+                    print(f'I: Waiting 1 second before next chunk...')
                     import time
-                    time.sleep(2)
+                    time.sleep(1)
                     
                 except Exception as e:
                     print(f'W: Error processing chunk {chunk_count + 1}: {e}')

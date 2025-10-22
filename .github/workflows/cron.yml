@@ -49,8 +49,10 @@ jobs:
       - name: Import NVD
         run: |
           # Use NVD API 2.0 with Python importer - Initial import with 8 years of data
-          # Using chunked approach with rate limiting to handle NVD API limitations
+          # Using chunked approach with API key for higher rate limits
           flask import-nvd 2920
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
       - name: Update states
         run: flask update-states
