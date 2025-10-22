@@ -39,22 +39,68 @@ def register(app):
     @click.argument('days')
     def import_nvd_cve(days: str):
         api = nvd.API()
-
+        total_days = int(days)
+        
         print(f'I: Importing NVD changes from {days} day(s) ago')
+        
+        # For large date ranges, chunk into smaller periods to avoid API limits
+        if total_days > 365:  # More than 1 year
+            chunk_days = 90  # 3 months per chunk
+            print(f'I: Large date range detected, using chunked approach with {chunk_days}-day chunks')
+            
+            start_date = datetime.datetime.now() - datetime.timedelta(days=total_days)
+            current_date = start_date
+            chunk_count = 0
+            
+            while current_date < datetime.datetime.now():
+                chunk_end = min(current_date + datetime.timedelta(days=chunk_days), datetime.datetime.now())
+                
+                print(f'I: Processing chunk {chunk_count + 1}: {current_date.strftime("%Y-%m-%d")} to {chunk_end.strftime("%Y-%m-%d")}')
+                
+                try:
+                    cve_resp = api.cves(
+                        last_mod_start_date=current_date,
+                        last_mod_end_date=chunk_end,
+                    )
+                    
+                    if 'vulnerabilities' in cve_resp and cve_resp['vulnerabilities']:
+                        print(f'I: Found {len(cve_resp["vulnerabilities"])} CVEs in this chunk')
+                        for item in cve_resp['vulnerabilities']:
+                            process_nvd_cve_item(item)
+                        
+                        db.session.commit()
+                        print(f'I: Committed chunk {chunk_count + 1}')
+                    else:
+                        print(f'I: No CVEs found in chunk {chunk_count + 1}')
+                    
+                    # Rate limiting: wait between requests
+                    print(f'I: Waiting 2 seconds before next chunk...')
+                    import time
+                    time.sleep(2)
+                    
+                except Exception as e:
+                    print(f'W: Error processing chunk {chunk_count + 1}: {e}')
+                    print(f'I: Continuing with next chunk...')
+                
+                current_date = chunk_end
+                chunk_count += 1
+                
+        else:
+            # For smaller date ranges, use original approach
+            cve_resp = api.cves(
+                last_mod_start_date=datetime.datetime.now() - datetime.timedelta(days=total_days),
+                last_mod_end_date=datetime.datetime.now(),
+            )
 
-        cve_resp = api.cves(
-            last_mod_start_date=datetime.datetime.now() - datetime.timedelta(days=int(days)),
-            last_mod_end_date=datetime.datetime.now(),
-        )
+            if 'vulnerabilities' not in cve_resp:
+                print(f"E: 'vulnerabilities' not found in NVD feed.")
+                exit(1)
 
-        if 'vulnerabilities' not in cve_resp:
-            print(f"E: 'vulnerabilities' not found in NVD feed.")
-            exit(1)
+            for item in cve_resp['vulnerabilities']:
+                process_nvd_cve_item(item)
 
-        for item in cve_resp['vulnerabilities']:
-            process_nvd_cve_item(item)
-
-        db.session.commit()
+            db.session.commit()
+        
         print(f'I: Imported NVD feed successfully.')
 
     def process_nvd_cve_reference(vuln: Vulnerability, item: dict):

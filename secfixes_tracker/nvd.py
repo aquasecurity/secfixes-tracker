@@ -39,7 +39,31 @@ class API:
         if not self.api_token is None:
             headers["apiKey"] = self.api_key
 
-        resp = requests.get(url, headers=headers)
-        resp.raise_for_status()
-
-        return resp.json()
+        # Add rate limiting headers to be respectful to NVD API
+        headers["User-Agent"] = "secfixes-tracker/1.0"
+        
+        # Retry logic for rate limiting
+        import time
+        max_retries = 3
+        retry_delay = 5  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                resp = requests.get(url, headers=headers, timeout=30)
+                resp.raise_for_status()
+                return resp.json()
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 429:  # Rate limited
+                    if attempt < max_retries - 1:
+                        print(f"W: Rate limited, waiting {retry_delay} seconds before retry {attempt + 1}/{max_retries}")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                raise
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries - 1:
+                    print(f"W: Request failed, retrying in {retry_delay} seconds: {e}")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+                raise
