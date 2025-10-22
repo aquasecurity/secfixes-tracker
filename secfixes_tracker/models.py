@@ -146,6 +146,13 @@ class Package(db.Model):
     def published_versions(self):
         return [pkgver for pkgver in self.versions if pkgver.published]
 
+    def to_json(self):
+        return {
+            'id': self.package_id,
+            'type': 'Package',
+            'packageName': self.package_name,
+        }
+
     def resolved_vulns(self):
         return list({state.vuln for ver in self.versions for state in ver.states if state.fixed})
 
@@ -217,6 +224,17 @@ class PackageVersion(db.Model):
             'repo': self.repo,
             'maintainer': self.maintainer,
             'state': [state.to_json_ld() for state in self.states],
+        }
+
+    def to_json(self):
+        return {
+            'id': self.package_version_id,
+            'type': 'PackageVersion',
+            'packageName': self.package.package_name,
+            'version': self.version,
+            'repo': self.repo,
+            'published': self.published,
+            'maintainer': self.maintainer,
         }
 
 
