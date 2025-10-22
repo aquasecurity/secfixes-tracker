@@ -48,9 +48,14 @@ jobs:
 
       - name: Import NVD
         run: |
-          # Use NVD API 2.0 with Python importer - Initial import with 8 years of data
-          # Using chunked approach with API key for higher rate limits
-          flask import-nvd 2920
+          # Import NVD CVEs year by year from 2016 to current year
+          # Using publication date filtering for more comprehensive coverage
+          for year in $(seq 2016 $(date "+%Y")); do
+            echo "=== Importing CVEs for year $year ==="
+            flask import-nvd $year
+            echo "=== Completed year $year ==="
+          done
+          echo "=== All years completed ==="
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
