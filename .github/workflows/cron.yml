@@ -48,8 +48,9 @@ jobs:
 
       - name: Import NVD
         run: |
-          # Use NVD API 2.0 with Python importer - Initial import with 8 years of data
-          flask import-nvd 2920
+          # Use NVD API 2.0 with Python importer - Import recent data (30 days)
+          # Note: NVD API has limitations on large date ranges, using 30 days for reliability
+          flask import-nvd 30
 
       - name: Update states
         run: flask update-states
