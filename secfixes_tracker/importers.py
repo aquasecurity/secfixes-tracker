@@ -39,7 +39,6 @@ def register(app):
     @click.argument('days')
     def import_nvd_cve(days: str):
         api = nvd.API()
-        total_days = int(days)
         
         # Check if API key is available
         has_api_key = api.api_token is not None
@@ -48,6 +47,46 @@ def register(app):
         else:
             print(f'W: No NVD API key found, using limited rate (5 req/min)')
         
+        # Check if input is a year (4 digits) for year-based import
+        if days.isdigit() and len(days) == 4:
+            year = int(days)
+            current_year = datetime.datetime.now().year
+            
+            if year < 1999 or year > current_year:
+                print(f'E: Invalid year {year}. Must be between 1999 and {current_year}')
+                return
+                
+            print(f'I: Importing NVD CVEs for year {year}')
+            
+            try:
+                # Use publication date filtering for year-based import
+                start_date = datetime.datetime(year, 1, 1)
+                end_date = datetime.datetime(year, 12, 31, 23, 59, 59)
+                
+                cve_resp = api.cves(
+                    pub_start_date=start_date,
+                    pub_end_date=end_date
+                )
+                
+                if 'vulnerabilities' not in cve_resp:
+                    print(f"E: 'vulnerabilities' not found in NVD feed for {year}")
+                    return
+                    
+                print(f'I: Found {len(cve_resp["vulnerabilities"])} CVEs for {year}')
+                
+                for item in cve_resp['vulnerabilities']:
+                    process_nvd_cve_item(item)
+                    
+                db.session.commit()
+                print(f'I: Successfully imported {len(cve_resp["vulnerabilities"])} CVEs for {year}')
+                
+            except Exception as e:
+                print(f'E: Error importing CVEs for {year}: {e}')
+                db.session.rollback()
+            return
+        
+        # Original logic for days-based import
+        total_days = int(days)
         print(f'I: Importing NVD changes from {days} day(s) ago')
         
         # For large date ranges, use pagination instead of date filtering

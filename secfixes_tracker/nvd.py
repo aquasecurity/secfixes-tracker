@@ -19,11 +19,18 @@ class API:
         *,
         last_mod_start_date: datetime.datetime = None,
         last_mod_end_date: datetime.datetime = None,
+        pub_start_date: datetime.datetime = None,
+        pub_end_date: datetime.datetime = None,
         start_index: int = 0,
     ):
         if (last_mod_start_date is None) ^ (last_mod_end_date is None):
             raise ValueError(
                 "last_mod_start_date and last_mod_end_date must both be provided at the same time"
+            )
+        
+        if (pub_start_date is None) ^ (pub_end_date is None):
+            raise ValueError(
+                "pub_start_date and pub_end_date must both be provided at the same time"
             )
 
         params = {
@@ -35,6 +42,12 @@ class API:
 
         if not last_mod_end_date is None:
             params["lastModEndDate"] = last_mod_end_date.isoformat()
+            
+        if not pub_start_date is None:
+            params["pubStartDate"] = pub_start_date.isoformat()
+
+        if not pub_end_date is None:
+            params["pubEndDate"] = pub_end_date.isoformat()
 
         url = "{}?{}".format(self.url, urllib.parse.urlencode(params))
         print(url)
