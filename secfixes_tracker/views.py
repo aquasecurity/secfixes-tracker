@@ -167,31 +167,31 @@ def register(app):
                 cve_id = vuln.cve_id
                 if cve_id:
                     # Create individual CVE file
-                    cve_data = vuln.to_json_ld()
+                    cve_data = vuln.to_json()
                     filename = f"data/{cve_id}.json"
                     with open(filename, 'w') as f:
                         json.dump(cve_data, f, indent=2)
             
             # Also export consolidated files for reference
-            vuln_data = [v.to_json_ld() for v in vulnerabilities]
+            vuln_data = [v.to_json() for v in vulnerabilities]
             with open('data/vulnerabilities.json', 'w') as f:
                 json.dump(vuln_data, f, indent=2)
             
             # Export packages
             packages = Package.query.all()
-            pkg_data = [p.to_json_ld() for p in packages]
+            pkg_data = [p.to_json() for p in packages]
             with open('data/packages.json', 'w') as f:
                 json.dump(pkg_data, f, indent=2)
             
             # Export package versions
             package_versions = PackageVersion.query.all()
-            pkgver_data = [pv.to_json_ld() for pv in package_versions]
+            pkgver_data = [pv.to_json() for pv in package_versions]
             with open('data/package_versions.json', 'w') as f:
                 json.dump(pkgver_data, f, indent=2)
             
             # Export vulnerability states
             vuln_states = VulnerabilityState.query.all()
-            state_data = [vs.to_json_ld() for vs in vuln_states]
+            state_data = [vs.to_json() for vs in vuln_states]
             with open('data/vulnerability_states.json', 'w') as f:
                 json.dump(state_data, f, indent=2)
         
