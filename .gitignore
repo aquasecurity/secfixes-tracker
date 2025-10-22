@@ -142,3 +142,10 @@ data
 # Database files
 application.db
 *.db
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
