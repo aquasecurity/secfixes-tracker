@@ -52,17 +52,39 @@ def register(app):
         
         # For large date ranges, chunk into smaller periods to avoid API limits
         if total_days > 365:  # More than 1 year
-            chunk_days = 180  # 6 months per chunk (reduces total requests)
-            print(f'I: Large date range detected, using chunked approach with {chunk_days}-day chunks')
+            # Use larger chunks for very large date ranges to avoid too many requests
+            if total_days > 2000:  # More than ~5.5 years
+                chunk_days = 365  # 1 year per chunk for very large ranges
+            else:
+                chunk_days = 180  # 6 months per chunk for moderate ranges
             
+            print(f'I: Large date range detected ({total_days} days), using chunked approach with {chunk_days}-day chunks')
+            
+            # Calculate total expected chunks for progress tracking
+            total_chunks = (total_days + chunk_days - 1) // chunk_days  # Ceiling division
+            print(f'I: Expected to process approximately {total_chunks} chunks')
+            
+            # Round to day boundaries to avoid microsecond precision issues
             start_date = datetime.datetime.now() - datetime.timedelta(days=total_days)
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
             current_date = start_date
             chunk_count = 0
             
             while current_date < datetime.datetime.now():
-                chunk_end = min(current_date + datetime.timedelta(days=chunk_days), datetime.datetime.now())
+                chunk_end = current_date + datetime.timedelta(days=chunk_days)
+                if chunk_end > datetime.datetime.now():
+                    chunk_end = datetime.datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
                 
-                print(f'I: Processing chunk {chunk_count + 1}: {current_date.strftime("%Y-%m-%d")} to {chunk_end.strftime("%Y-%m-%d")}')
+                # Skip chunks that are too small (less than 1 day)
+                chunk_duration = (chunk_end - current_date).total_seconds() / 86400  # Convert to days
+                if chunk_duration < 1:
+                    print(f'I: Skipping chunk {chunk_count + 1} - too small ({chunk_duration:.2f} days)')
+                    current_date = chunk_end
+                    chunk_count += 1
+                    continue
+                
+                progress = ((chunk_count + 1) / total_chunks) * 100
+                print(f'I: Processing chunk {chunk_count + 1}/{total_chunks} ({progress:.1f}%): {current_date.strftime("%Y-%m-%d")} to {chunk_end.strftime("%Y-%m-%d")} ({chunk_duration:.1f} days)')
                 
                 # Retry logic with exponential backoff for rate limiting
                 max_retries = 5
