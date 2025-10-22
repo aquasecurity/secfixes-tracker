@@ -50,41 +50,34 @@ def register(app):
         
         print(f'I: Importing NVD changes from {days} day(s) ago')
         
-        # For large date ranges, chunk into smaller periods to avoid API limits
+        # For large date ranges, use pagination instead of date filtering
+        # (NVD API 2.0 date filtering doesn't work - returns 404 errors)
         if total_days > 365:  # More than 1 year
-            # Use larger chunks for very large date ranges to avoid too many requests
-            if total_days > 2000:  # More than ~5.5 years
-                chunk_days = 365  # 1 year per chunk for very large ranges
-            else:
-                chunk_days = 180  # 6 months per chunk for moderate ranges
+            print(f'I: Large date range detected ({total_days} days)')
+            print(f'I: Using pagination approach (NVD API date filtering not available)')
             
-            print(f'I: Large date range detected ({total_days} days), using chunked approach with {chunk_days}-day chunks')
+            # Calculate how many pages we need to get recent CVEs
+            # NVD API has ~315k total CVEs, sorted oldest first
+            # To get recent CVEs, we need to start from higher indices
+            total_cves = 314940  # Approximate total from API
+            results_per_page = 2000
             
-            # Calculate total expected chunks for progress tracking
-            total_chunks = (total_days + chunk_days - 1) // chunk_days  # Ceiling division
-            print(f'I: Expected to process approximately {total_chunks} chunks')
+            # For 8 years, we want CVEs from roughly the last 8 years
+            # Estimate: 8 years = ~2920 days, assume ~100 CVEs per day = ~292k CVEs
+            # So we want to start from index ~22k to get recent CVEs
+            start_index = max(0, total_cves - (total_days * 100))  # Rough estimate
+            end_index = total_cves
             
-            # Round to day boundaries to avoid microsecond precision issues
-            start_date = datetime.datetime.now() - datetime.timedelta(days=total_days)
-            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            current_date = start_date
-            chunk_count = 0
+            print(f'I: Will fetch CVEs from index {start_index} to {end_index}')
+            print(f'I: This should include recent CVEs from the last {total_days} days')
             
-            while current_date < datetime.datetime.now():
-                chunk_end = current_date + datetime.timedelta(days=chunk_days)
-                if chunk_end > datetime.datetime.now():
-                    chunk_end = datetime.datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
-                
-                # Skip chunks that are too small (less than 1 day)
-                chunk_duration = (chunk_end - current_date).total_seconds() / 86400  # Convert to days
-                if chunk_duration < 1:
-                    print(f'I: Skipping chunk {chunk_count + 1} - too small ({chunk_duration:.2f} days)')
-                    current_date = chunk_end
-                    chunk_count += 1
-                    continue
-                
-                progress = ((chunk_count + 1) / total_chunks) * 100
-                print(f'I: Processing chunk {chunk_count + 1}/{total_chunks} ({progress:.1f}%): {current_date.strftime("%Y-%m-%d")} to {chunk_end.strftime("%Y-%m-%d")} ({chunk_duration:.1f} days)')
+            current_index = start_index
+            page_count = 0
+            
+            while current_index < end_index:
+                page_count += 1
+                progress = ((current_index - start_index) / (end_index - start_index)) * 100
+                print(f'I: Processing page {page_count}: index {current_index} ({progress:.1f}%)')
                 
                 # Retry logic with exponential backoff for rate limiting
                 max_retries = 5
@@ -93,20 +86,17 @@ def register(app):
                 
                 while retry_count < max_retries and not success:
                     try:
-                        cve_resp = api.cves(
-                            last_mod_start_date=current_date,
-                            last_mod_end_date=chunk_end,
-                        )
+                        cve_resp = api.cves(start_index=current_index)
                         
                         if 'vulnerabilities' in cve_resp and cve_resp['vulnerabilities']:
-                            print(f'I: Found {len(cve_resp["vulnerabilities"])} CVEs in this chunk')
+                            print(f'I: Found {len(cve_resp["vulnerabilities"])} CVEs in this page')
                             for item in cve_resp['vulnerabilities']:
                                 process_nvd_cve_item(item)
                             
                             db.session.commit()
-                            print(f'I: Committed chunk {chunk_count + 1}')
+                            print(f'I: Committed page {page_count}')
                         else:
-                            print(f'I: No CVEs found in chunk {chunk_count + 1}')
+                            print(f'I: No CVEs found in page {page_count}')
                         
                         success = True
                         
@@ -120,35 +110,36 @@ def register(app):
                                 wait_time = min(2 ** retry_count, 30)  # Max 30 seconds with API key
                             else:
                                 wait_time = min(2 ** retry_count, 60)  # Max 60 seconds without API key
-                            print(f'W: Rate limit hit for chunk {chunk_count + 1}, retry {retry_count}/{max_retries}, waiting {wait_time}s...')
+                            print(f'W: Rate limit hit for page {page_count}, retry {retry_count}/{max_retries}, waiting {wait_time}s...')
                             import time
                             time.sleep(wait_time)
                         elif "404" in error_msg:
-                            # 404 error - likely no data for this time range, skip
-                            print(f'W: No data found for chunk {chunk_count + 1} (404), skipping...')
-                            success = True  # Treat as success to continue
+                            # 404 error - likely no more data, stop
+                            print(f'W: No more data found at index {current_index} (404), stopping...')
+                            success = True  # Treat as success to stop
                         else:
                             # Other error - wait and retry
                             wait_time = min(2 ** retry_count, 30)  # Max 30 seconds
-                            print(f'W: Error processing chunk {chunk_count + 1}, retry {retry_count}/{max_retries}: {error_msg}')
+                            print(f'W: Error processing page {page_count}, retry {retry_count}/{max_retries}: {error_msg}')
                             print(f'I: Waiting {wait_time}s before retry...')
                             import time
                             time.sleep(wait_time)
                 
                 if not success:
-                    print(f'E: Failed to process chunk {chunk_count + 1} after {max_retries} retries, skipping...')
+                    print(f'E: Failed to process page {page_count} after {max_retries} retries, stopping...')
+                    break
                 
-                # Brief pause between chunks to be respectful to the API
+                # Move to next page
+                current_index += results_per_page
+                
+                # Brief pause between pages to be respectful to the API
                 if has_api_key:
                     wait_time = 1  # 1 second with API key
                 else:
                     wait_time = 3  # 3 seconds without API key
-                print(f'I: Waiting {wait_time} second(s) before next chunk...')
+                print(f'I: Waiting {wait_time} second(s) before next page...')
                 import time
                 time.sleep(wait_time)
-                
-                current_date = chunk_end
-                chunk_count += 1
                 
         else:
             # For smaller date ranges, use original approach
