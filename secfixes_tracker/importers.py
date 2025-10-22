@@ -41,11 +41,18 @@ def register(app):
         api = nvd.API()
         total_days = int(days)
         
+        # Check if API key is available
+        has_api_key = api.api_token is not None
+        if has_api_key:
+            print(f'I: Using NVD API with key for higher rate limits')
+        else:
+            print(f'W: No NVD API key found, using limited rate (5 req/min)')
+        
         print(f'I: Importing NVD changes from {days} day(s) ago')
         
         # For large date ranges, chunk into smaller periods to avoid API limits
         if total_days > 365:  # More than 1 year
-            chunk_days = 90  # 3 months per chunk
+            chunk_days = 180  # 6 months per chunk (reduces total requests)
             print(f'I: Large date range detected, using chunked approach with {chunk_days}-day chunks')
             
             start_date = datetime.datetime.now() - datetime.timedelta(days=total_days)
@@ -57,30 +64,66 @@ def register(app):
                 
                 print(f'I: Processing chunk {chunk_count + 1}: {current_date.strftime("%Y-%m-%d")} to {chunk_end.strftime("%Y-%m-%d")}')
                 
-                try:
-                    cve_resp = api.cves(
-                        last_mod_start_date=current_date,
-                        last_mod_end_date=chunk_end,
-                    )
-                    
-                    if 'vulnerabilities' in cve_resp and cve_resp['vulnerabilities']:
-                        print(f'I: Found {len(cve_resp["vulnerabilities"])} CVEs in this chunk')
-                        for item in cve_resp['vulnerabilities']:
-                            process_nvd_cve_item(item)
+                # Retry logic with exponential backoff for rate limiting
+                max_retries = 5
+                retry_count = 0
+                success = False
+                
+                while retry_count < max_retries and not success:
+                    try:
+                        cve_resp = api.cves(
+                            last_mod_start_date=current_date,
+                            last_mod_end_date=chunk_end,
+                        )
                         
-                        db.session.commit()
-                        print(f'I: Committed chunk {chunk_count + 1}')
-                    else:
-                        print(f'I: No CVEs found in chunk {chunk_count + 1}')
-                    
-                    # Brief pause between chunks (API key allows faster processing)
-                    print(f'I: Waiting 1 second before next chunk...')
-                    import time
-                    time.sleep(1)
-                    
-                except Exception as e:
-                    print(f'W: Error processing chunk {chunk_count + 1}: {e}')
-                    print(f'I: Continuing with next chunk...')
+                        if 'vulnerabilities' in cve_resp and cve_resp['vulnerabilities']:
+                            print(f'I: Found {len(cve_resp["vulnerabilities"])} CVEs in this chunk')
+                            for item in cve_resp['vulnerabilities']:
+                                process_nvd_cve_item(item)
+                            
+                            db.session.commit()
+                            print(f'I: Committed chunk {chunk_count + 1}')
+                        else:
+                            print(f'I: No CVEs found in chunk {chunk_count + 1}')
+                        
+                        success = True
+                        
+                    except Exception as e:
+                        retry_count += 1
+                        error_msg = str(e)
+                        
+                        if "429" in error_msg or "Too Many Requests" in error_msg:
+                            # Rate limit hit - exponential backoff
+                            if has_api_key:
+                                wait_time = min(2 ** retry_count, 30)  # Max 30 seconds with API key
+                            else:
+                                wait_time = min(2 ** retry_count, 60)  # Max 60 seconds without API key
+                            print(f'W: Rate limit hit for chunk {chunk_count + 1}, retry {retry_count}/{max_retries}, waiting {wait_time}s...')
+                            import time
+                            time.sleep(wait_time)
+                        elif "404" in error_msg:
+                            # 404 error - likely no data for this time range, skip
+                            print(f'W: No data found for chunk {chunk_count + 1} (404), skipping...')
+                            success = True  # Treat as success to continue
+                        else:
+                            # Other error - wait and retry
+                            wait_time = min(2 ** retry_count, 30)  # Max 30 seconds
+                            print(f'W: Error processing chunk {chunk_count + 1}, retry {retry_count}/{max_retries}: {error_msg}')
+                            print(f'I: Waiting {wait_time}s before retry...')
+                            import time
+                            time.sleep(wait_time)
+                
+                if not success:
+                    print(f'E: Failed to process chunk {chunk_count + 1} after {max_retries} retries, skipping...')
+                
+                # Brief pause between chunks to be respectful to the API
+                if has_api_key:
+                    wait_time = 1  # 1 second with API key
+                else:
+                    wait_time = 3  # 3 seconds without API key
+                print(f'I: Waiting {wait_time} second(s) before next chunk...')
+                import time
+                time.sleep(wait_time)
                 
                 current_date = chunk_end
                 chunk_count += 1
