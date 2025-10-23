@@ -56,6 +56,16 @@ def register(app):
             if year < 1999 or year > current_year:
                 print(f'E: Invalid year {year}. Must be between 1999 and {current_year}')
                 return
+            
+            # Safety check: prevent importing too many historical CVEs
+            if year < current_year - 2:
+                print(f'W: Year {year} is more than 2 years old. This will import many historical CVEs.')
+                print(f'W: Consider importing only recent years ({current_year-1}-{current_year}) to avoid data explosion.')
+                print(f'W: Current database has 292,000+ CVEs. Importing {year} will add many more.')
+                response = input(f'Continue importing {year}? (y/N): ')
+                if response.lower() != 'y':
+                    print(f'I: Skipping {year} to prevent data explosion')
+                    return
                 
             print(f'I: Importing NVD CVEs for year {year}')
             
