@@ -77,7 +77,13 @@ def register(app):
                     chunks.append((current_start, current_end))
                     current_start = current_end + datetime.timedelta(seconds=1)
                 
+                print(f'I: Will process {len(chunks)} chunks for year {year}')
+                
                 print(f'I: Breaking {year} into {len(chunks)} chunks of max 120 days each')
+                
+                # Estimate time (roughly 0.5 seconds per chunk + API time)
+                estimated_time = len(chunks) * 1.5  # 1.5 seconds per chunk
+                print(f'I: Estimated time: {estimated_time/60:.1f} minutes for {year}')
                 
                 total_found = 0
                 
@@ -119,11 +125,15 @@ def register(app):
                             print(f'I: Skipped {skipped_count} non-CVE entries in chunk {i}')
                         
                         db.session.commit()
-                        print(f'I: Committed {len(vulnerabilities)} CVEs from chunk {i}')
+                        print(f'I: Committed {processed_count} CVEs from chunk {i}')
+                        
+                        # Show progress
+                        progress = (i / len(chunks)) * 100
+                        print(f'I: Progress: {progress:.1f}% ({i}/{len(chunks)} chunks)')
                         
                         # Brief pause to be respectful to the API
                         import time
-                        time.sleep(1)
+                        time.sleep(0.5)  # Reduced from 1 second to 0.5 seconds
                         
                     except Exception as e:
                         print(f'E: Error processing chunk {i}: {e}')

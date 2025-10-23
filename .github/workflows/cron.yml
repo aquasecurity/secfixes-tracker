@@ -48,9 +48,9 @@ jobs:
 
       - name: Import NVD
         run: |
-          # Import NVD CVEs year by year from 2016 to current year
+          # Import NVD CVEs year by year from 2018 to current year
           # Using publication date filtering for more comprehensive coverage
-          for year in $(seq 2016 $(date "+%Y")); do
+          for year in $(seq 2018 $(date "+%Y")); do
             echo "=== Importing CVEs for year $year ==="
             flask import-nvd $year
             echo "=== Completed year $year ==="
