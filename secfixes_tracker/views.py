@@ -161,7 +161,7 @@ def register(app):
         # Create a mock request context for JSON-LD generation
         with current_app.test_request_context():
             # Export only Alpine-relevant CVEs (CVEs with vulnerability states)
-            # This filters out the 292k+ CVEs to only ~3,652 Alpine-relevant ones
+            # This filters out the 292k+ CVEs to only those that affect Alpine packages
             print('I: Filtering CVEs to only Alpine-relevant vulnerabilities...')
             
             # Get all CVEs that have vulnerability states (i.e., affect Alpine packages)
@@ -170,42 +170,37 @@ def register(app):
             
             print(f'I: Found {len(alpine_vuln_ids)} Alpine-relevant CVEs out of {Vulnerability.query.count()} total CVEs')
             
-            # Export individual CVE files (only Alpine-relevant)
+            # Export individual CVE files (only Alpine-relevant with valid CVE IDs)
             vulnerabilities = Vulnerability.query.filter(Vulnerability.vuln_id.in_(alpine_vuln_ids)).all()
+            
+            exported_count = 0
+            skipped_count = 0
+            
             for vuln in vulnerabilities:
                 # Extract CVE ID from the vulnerability
                 cve_id = vuln.cve_id
-                if cve_id:
+                
+                # Only export if it's a valid CVE ID (CVE-YYYY-NNNNN format)
+                # This filters out non-CVE entries like ALPINE-* or other formats
+                if cve_id and cve_id.startswith('CVE-'):
                     # Create individual CVE file
                     cve_data = vuln.to_json()
                     filename = f"data/{cve_id}.json"
                     with open(filename, 'w') as f:
                         json.dump(cve_data, f, indent=2)
+                    exported_count += 1
+                else:
+                    # Skip non-CVE entries (like ALPINE-* identifiers)
+                    skipped_count += 1
+                    if cve_id:
+                        print(f'I: Skipping non-CVE entry: {cve_id}')
             
-            # Also export consolidated files for reference (Alpine-relevant only)
-            vuln_data = [v.to_json() for v in vulnerabilities]
-            with open('data/vulnerabilities.json', 'w') as f:
-                json.dump(vuln_data, f, indent=2)
-            
-            # Export packages (all Alpine packages)
-            packages = Package.query.all()
-            pkg_data = [p.to_json() for p in packages]
-            with open('data/packages.json', 'w') as f:
-                json.dump(pkg_data, f, indent=2)
-            
-            # Export package versions (all Alpine package versions)
-            package_versions = PackageVersion.query.all()
-            pkgver_data = [pv.to_json() for pv in package_versions]
-            with open('data/package_versions.json', 'w') as f:
-                json.dump(pkgver_data, f, indent=2)
-            
-            # Export vulnerability states (all Alpine vulnerability states)
-            vuln_states = VulnerabilityState.query.all()
-            state_data = [vs.to_json() for vs in vuln_states]
-            with open('data/vulnerability_states.json', 'w') as f:
-                json.dump(state_data, f, indent=2)
+            # Note: Consolidated export files (vulnerabilities.json, packages.json, etc.) 
+            # are not exported as they're not used downstream in vuln-list-update
         
         print(f"I: Export completed successfully!")
-        print(f"I: Created {len(vulnerabilities)} individual CVE files (Alpine-relevant only)")
+        print(f"I: Exported {exported_count} CVE files (Alpine-relevant only)")
+        if skipped_count > 0:
+            print(f"I: Skipped {skipped_count} non-CVE entries (e.g., ALPINE-* identifiers)")
         print(f"I: Total CVEs in database: {Vulnerability.query.count()}")
-        print(f"I: Alpine-relevant CVEs exported: {len(vulnerabilities)}")
+        print(f"I: Alpine-relevant vulnerabilities found: {len(alpine_vuln_ids)}")
