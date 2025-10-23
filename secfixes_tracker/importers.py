@@ -324,17 +324,23 @@ def register(app):
             print(f'I: Skipping invalid CVE format: {cve_id}')
             return
 
+        descriptions = cve.get('descriptions', [])
         cve_description = select(
-            cve.get('descriptions', []),
-            lambda desc: desc['lang'] == "en"
-        ).get('value', [])
-        if not cve_description:
-            return
+            descriptions,
+            lambda desc: desc.get('lang') == "en"
+        ).get('value', None)
+        # Fallback to first description value if EN not present
+        if not cve_description and descriptions:
+            cve_description = descriptions[0].get('value')
 
         print(f'I: Processing {cve_id}.')
 
-        impact = item.get('metrics', {}).get(
-            'cvssMetricV31', {}).get('cvssData', {})
+        # NVD API 2.0: cvssMetricV31 is a list, not a dict
+        cvssMetricV31 = cve.get('metrics', {}).get('cvssMetricV31', [])
+        if cvssMetricV31 and len(cvssMetricV31) > 0:
+            impact = cvssMetricV31[0].get('cvssData', {})
+        else:
+            impact = {}
 
         cvss3_score = impact.get('baseScore', None)
         cvss3_vector = impact.get('vectorString', None)
@@ -347,7 +353,9 @@ def register(app):
         db.session.add(vuln)
 
         if 'configurations' in cve and len(cve['configurations']) > 0:
-            process_nvd_cve_configurations(vuln, cve['configurations'][0])
+            # Process all configuration blocks, not just the first
+            for configuration in cve['configurations']:
+                process_nvd_cve_configurations(vuln, configuration)
 
         if 'references' in cve:
             process_nvd_cve_references(vuln, cve['references'])
@@ -360,18 +368,9 @@ def register(app):
     def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
         global LANGUAGE_REWRITERS
 
-        if 'nodes' not in configuration or not configuration['nodes']:
-            return
-
-        nodes = configuration['nodes']
-        if not nodes or 'cpeMatch' not in nodes[0]:
-            return
-
-        cpe_match = nodes[0]['cpeMatch']
-
-        for match in cpe_match:
+        def handle_match(match: dict):
             if 'criteria' not in match:
-                continue
+                return
 
             # if vulnerable is not specified, assume True.  maintainer can override
             # by adding a secfixes-override entry in their APKBUILD.
@@ -423,6 +422,20 @@ def register(app):
 
             process_nvd_cve_configuration_item(
                 vuln, source_pkgname, min_version, min_version_op, max_version, max_version_op, vulnerable, cpe_uri)
+
+        def walk_nodes(nodes: list):
+            for node in nodes or []:
+                for m in node.get('cpeMatch', []) or []:
+                    handle_match(m)
+                # Children may contain nested nodes
+                for child in node.get('children', []) or []:
+                    # child is itself a node with potential cpeMatch/children
+                    walk_nodes([child])
+
+        if 'nodes' not in configuration or not configuration['nodes']:
+            return
+
+        walk_nodes(configuration['nodes'])
 
     def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str,
                                            min_version: str, min_version_op: str,
