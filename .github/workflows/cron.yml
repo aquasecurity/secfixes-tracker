@@ -48,20 +48,12 @@ jobs:
 
       - name: Import NVD
         run: |
-          # Import only recent NVD CVEs (last 2 years) to avoid importing entire historical database
-          # This prevents the 3,652 → 292,000+ CVE explosion
-          CURRENT_YEAR=$(date "+%Y")
-          PREVIOUS_YEAR=$((CURRENT_YEAR - 1))
-          
-          echo "=== Importing only recent CVEs (${PREVIOUS_YEAR}-${CURRENT_YEAR}) ==="
-          echo "=== This prevents importing 292,000+ historical CVEs ==="
-          
-          for year in $(seq $PREVIOUS_YEAR $CURRENT_YEAR); do
-            echo "=== Importing CVEs for year $year ==="
-            flask import-nvd $year
-            echo "=== Completed year $year ==="
-          done
-          echo "=== Recent years completed ==="
+          # Import recent NVD CVEs using days parameter (matching original commit d983693e)
+          # This should result in ~3,652 CVEs instead of 292,000+ historical CVEs
+          # Original strategy: import recent CVEs from last 7 days, not entire years
+          echo "=== Importing recent CVEs (last 7 days) ==="
+          flask import-nvd 7
+          echo "=== Recent CVEs completed ==="
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
