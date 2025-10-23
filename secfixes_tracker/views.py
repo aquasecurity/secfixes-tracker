@@ -170,37 +170,56 @@ def register(app):
             
             print(f'I: Found {len(alpine_vuln_ids)} Alpine-relevant CVEs out of {Vulnerability.query.count()} total CVEs')
             
-            # Export individual CVE files (only Alpine-relevant with valid CVE IDs)
+            # Export individual CVE files (only Alpine-relevant with valid CVE IDs and non-empty states)
             vulnerabilities = Vulnerability.query.filter(Vulnerability.vuln_id.in_(alpine_vuln_ids)).all()
             
             exported_count = 0
             skipped_count = 0
+            empty_state_count = 0
+            invalid_cve_count = 0
             
             for vuln in vulnerabilities:
                 # Extract CVE ID from the vulnerability
                 cve_id = vuln.cve_id
                 
-                # Only export if it's a valid CVE ID (CVE-YYYY-NNNNN format)
-                # This filters out non-CVE entries like ALPINE-* or other formats
-                if cve_id and cve_id.startswith('CVE-'):
+                # Skip invalid CVE IDs (like CVE-46838, not a valid CVE format)
+                if not cve_id or not cve_id.startswith('CVE-'):
+                    invalid_cve_count += 1
+                    if cve_id:
+                        print(f'I: Skipping invalid CVE ID: {cve_id}')
+                    continue
+                
+                # Validate CVE format (CVE-YYYY-NNNNN)
+                import re
+                if not re.match(r'^CVE-\d{4}-\d{4,7}$', cve_id):
+                    invalid_cve_count += 1
+                    print(f'I: Skipping invalid CVE format: {cve_id}')
+                    continue
+                
+                # Create CVE data to check if it has non-empty states
+                cve_data = vuln.to_json()
+                
+                # Only export if CVE has non-empty state array (Alpine vulnerability states)
+                if cve_data.get('state') and len(cve_data['state']) > 0:
                     # Create individual CVE file
-                    cve_data = vuln.to_json()
                     filename = f"data/{cve_id}.json"
                     with open(filename, 'w') as f:
                         json.dump(cve_data, f, indent=2)
                     exported_count += 1
                 else:
-                    # Skip non-CVE entries (like ALPINE-* identifiers)
-                    skipped_count += 1
-                    if cve_id:
-                        print(f'I: Skipping non-CVE entry: {cve_id}')
+                    # Skip CVEs with empty states (no Alpine relevance)
+                    empty_state_count += 1
+                    print(f'I: Skipping CVE with empty states: {cve_id}')
             
             # Note: Consolidated export files (vulnerabilities.json, packages.json, etc.) 
             # are not exported as they're not used downstream in vuln-list-update
         
         print(f"I: Export completed successfully!")
-        print(f"I: Exported {exported_count} CVE files (Alpine-relevant only)")
-        if skipped_count > 0:
-            print(f"I: Skipped {skipped_count} non-CVE entries (e.g., ALPINE-* identifiers)")
+        print(f"I: Exported {exported_count} CVE files (with Alpine states)")
+        if empty_state_count > 0:
+            print(f"I: Skipped {empty_state_count} CVEs with empty states (no Alpine relevance)")
+        if invalid_cve_count > 0:
+            print(f"I: Skipped {invalid_cve_count} invalid CVE IDs (invalid format)")
         print(f"I: Total CVEs in database: {Vulnerability.query.count()}")
         print(f"I: Alpine-relevant vulnerabilities found: {len(alpine_vuln_ids)}")
+        print(f"I: CVEs with non-empty states exported: {exported_count}")
