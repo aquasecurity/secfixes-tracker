@@ -6,6 +6,8 @@ import requests
 import tarfile
 import tempfile
 import yaml
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 
 
 from io import TextIOWrapper
@@ -81,14 +83,17 @@ def register(app):
                 
                 print(f'I: Breaking {year} into {len(chunks)} chunks of max 120 days each')
                 
-                # Estimate time (roughly 0.5 seconds per chunk + API time)
-                estimated_time = len(chunks) * 1.5  # 1.5 seconds per chunk
-                print(f'I: Estimated time: {estimated_time/60:.1f} minutes for {year}')
+                # Estimate time with parallel processing
+                max_workers = 3 if has_api_key else 2  # Fewer workers without API key
+                estimated_time = len(chunks) * 1.5 / max_workers  # Parallel speedup
+                print(f'I: Estimated time with {max_workers} parallel workers: {estimated_time/60:.1f} minutes for {year}')
                 
                 total_found = 0
+                db_lock = Lock()  # Thread-safe database access
                 
-                for i, (chunk_start, chunk_end) in enumerate(chunks, 1):
-                    print(f'I: Processing chunk {i}/{len(chunks)}: {chunk_start.date()} to {chunk_end.date()}')
+                def process_chunk(chunk_info):
+                    """Process a single chunk in parallel"""
+                    i, chunk_start, chunk_end = chunk_info
                     
                     try:
                         # Use publication date filtering with 120-day limit
@@ -99,46 +104,62 @@ def register(app):
                         
                         if 'vulnerabilities' not in cve_resp:
                             print(f'E: No vulnerabilities found in chunk {i}')
-                            continue
+                            return 0, 0
                             
                         vulnerabilities = cve_resp['vulnerabilities']
-                        print(f'I: Found {len(vulnerabilities)} CVEs in chunk {i}')
+                        print(f'I: Found {len(vulnerabilities)} CVEs in chunk {i}/{len(chunks)}')
                         
                         # Process each vulnerability with filtering
                         import re
-                        processed_count = 0
+                        processed_items = []
                         skipped_count = 0
                         
                         for item in vulnerabilities:
                             if 'cve' in item:
                                 cve_id = item['cve'].get('id', '')
                                 if cve_id.startswith('CVE-') and re.match(r'^CVE-\d{4}-\d{4,7}$', cve_id):
-                                    process_nvd_cve_item(item)
-                                    processed_count += 1
+                                    processed_items.append(item)
                                 else:
                                     skipped_count += 1
                             else:
                                 skipped_count += 1
                         
-                        total_found += processed_count
-                        if skipped_count > 0:
-                            print(f'I: Skipped {skipped_count} non-CVE entries in chunk {i}')
+                        # Thread-safe database write
+                        with db_lock:
+                            for item in processed_items:
+                                process_nvd_cve_item(item)
+                            db.session.commit()
                         
-                        db.session.commit()
-                        print(f'I: Committed {processed_count} CVEs from chunk {i}')
+                        processed_count = len(processed_items)
+                        
+                        if skipped_count > 0:
+                            print(f'I: Chunk {i}: Processed {processed_count} CVEs, skipped {skipped_count} non-CVE entries')
                         
                         # Show progress
                         progress = (i / len(chunks)) * 100
                         print(f'I: Progress: {progress:.1f}% ({i}/{len(chunks)} chunks)')
                         
-                        # Brief pause to be respectful to the API
-                        import time
-                        time.sleep(0.5)  # Reduced from 1 second to 0.5 seconds
+                        return processed_count, skipped_count
                         
                     except Exception as e:
                         print(f'E: Error processing chunk {i}: {e}')
-                        db.session.rollback()
-                        continue
+                        with db_lock:
+                            db.session.rollback()
+                        return 0, 0
+                
+                # Parallel processing with ThreadPoolExecutor
+                print(f'I: Using {max_workers} parallel workers for API calls')
+                
+                chunk_infos = [(i, chunk_start, chunk_end) for i, (chunk_start, chunk_end) in enumerate(chunks, 1)]
+                
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    # Submit all chunks for parallel processing
+                    futures = {executor.submit(process_chunk, chunk_info): chunk_info for chunk_info in chunk_infos}
+                    
+                    # Process results as they complete
+                    for future in as_completed(futures):
+                        processed_count, skipped_count = future.result()
+                        total_found += processed_count
                 
                 print(f'I: Successfully imported {total_found} CVEs for {year}')
                 
