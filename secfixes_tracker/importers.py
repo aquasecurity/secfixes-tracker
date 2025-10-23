@@ -48,7 +48,8 @@ def register(app):
             print(f'W: No NVD API key found, using limited rate (5 req/min)')
         
         # Check if input is a year (4 digits) for year-based import
-        if days.isdigit() and len(days) == 4:
+        # But exclude large numbers that are clearly days (like 2920)
+        if days.isdigit() and len(days) == 4 and int(days) <= 2025:
             year = int(days)
             current_year = datetime.datetime.now().year
             
@@ -59,26 +60,77 @@ def register(app):
             print(f'I: Importing NVD CVEs for year {year}')
             
             try:
-                # Use publication date filtering for year-based import
+                # NVD API 2.0 has a 120-day limit for date ranges
+                # We need to break the year into 120-day chunks
+                print(f'I: NVD API 2.0 has 120-day limit for date ranges, using chunked approach')
+                
+                # Break the year into 120-day chunks
                 start_date = datetime.datetime(year, 1, 1)
                 end_date = datetime.datetime(year, 12, 31, 23, 59, 59)
                 
-                cve_resp = api.cves(
-                    pub_start_date=start_date,
-                    pub_end_date=end_date
-                )
+                # Calculate chunks of 120 days
+                chunks = []
+                current_start = start_date
                 
-                if 'vulnerabilities' not in cve_resp:
-                    print(f"E: 'vulnerabilities' not found in NVD feed for {year}")
-                    return
-                    
-                print(f'I: Found {len(cve_resp["vulnerabilities"])} CVEs for {year}')
+                while current_start < end_date:
+                    current_end = min(current_start + datetime.timedelta(days=119, hours=23, minutes=59, seconds=59), end_date)
+                    chunks.append((current_start, current_end))
+                    current_start = current_end + datetime.timedelta(seconds=1)
                 
-                for item in cve_resp['vulnerabilities']:
-                    process_nvd_cve_item(item)
+                print(f'I: Breaking {year} into {len(chunks)} chunks of max 120 days each')
+                
+                total_found = 0
+                
+                for i, (chunk_start, chunk_end) in enumerate(chunks, 1):
+                    print(f'I: Processing chunk {i}/{len(chunks)}: {chunk_start.date()} to {chunk_end.date()}')
                     
-                db.session.commit()
-                print(f'I: Successfully imported {len(cve_resp["vulnerabilities"])} CVEs for {year}')
+                    try:
+                        # Use publication date filtering with 120-day limit
+                        cve_resp = api.cves(
+                            pub_start_date=chunk_start,
+                            pub_end_date=chunk_end
+                        )
+                        
+                        if 'vulnerabilities' not in cve_resp:
+                            print(f'E: No vulnerabilities found in chunk {i}')
+                            continue
+                            
+                        vulnerabilities = cve_resp['vulnerabilities']
+                        print(f'I: Found {len(vulnerabilities)} CVEs in chunk {i}')
+                        
+                        # Process each vulnerability with filtering
+                        import re
+                        processed_count = 0
+                        skipped_count = 0
+                        
+                        for item in vulnerabilities:
+                            if 'cve' in item:
+                                cve_id = item['cve'].get('id', '')
+                                if cve_id.startswith('CVE-') and re.match(r'^CVE-\d{4}-\d{4,7}$', cve_id):
+                                    process_nvd_cve_item(item)
+                                    processed_count += 1
+                                else:
+                                    skipped_count += 1
+                            else:
+                                skipped_count += 1
+                        
+                        total_found += processed_count
+                        if skipped_count > 0:
+                            print(f'I: Skipped {skipped_count} non-CVE entries in chunk {i}')
+                        
+                        db.session.commit()
+                        print(f'I: Committed {len(vulnerabilities)} CVEs from chunk {i}')
+                        
+                        # Brief pause to be respectful to the API
+                        import time
+                        time.sleep(1)
+                        
+                    except Exception as e:
+                        print(f'E: Error processing chunk {i}: {e}')
+                        db.session.rollback()
+                        continue
+                
+                print(f'I: Successfully imported {total_found} CVEs for {year}')
                 
             except Exception as e:
                 print(f'E: Error importing CVEs for {year}: {e}')
@@ -223,6 +275,19 @@ def register(app):
         cve_id = cve.get('id', None)
 
         if not cve_id:
+            return
+        
+        # Filter to only process standard CVE-* format entries
+        # Skip non-CVE entries like xpe.json files
+        if not cve_id.startswith('CVE-'):
+            print(f'I: Skipping non-CVE entry: {cve_id}')
+            return
+        
+        # Additional validation: ensure it follows CVE-YYYY-NNNNN format
+        import re
+        cve_pattern = r'^CVE-\d{4}-\d{4,7}$'
+        if not re.match(cve_pattern, cve_id):
+            print(f'I: Skipping invalid CVE format: {cve_id}')
             return
 
         cve_description = select(

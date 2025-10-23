@@ -54,7 +54,7 @@ class API:
 
         headers = {}
         if not self.api_token is None:
-            headers["apiKey"] = self.api_token
+            headers["X-Api-Key"] = self.api_token
 
         # Add headers for API compliance
         headers["User-Agent"] = "secfixes-tracker/1.0"
