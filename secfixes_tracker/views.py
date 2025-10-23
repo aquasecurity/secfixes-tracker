@@ -160,8 +160,18 @@ def register(app):
         
         # Create a mock request context for JSON-LD generation
         with current_app.test_request_context():
-            # Export individual CVE files
-            vulnerabilities = Vulnerability.query.all()
+            # Export only Alpine-relevant CVEs (CVEs with vulnerability states)
+            # This filters out the 292k+ CVEs to only ~3,652 Alpine-relevant ones
+            print('I: Filtering CVEs to only Alpine-relevant vulnerabilities...')
+            
+            # Get all CVEs that have vulnerability states (i.e., affect Alpine packages)
+            alpine_vuln_ids = db.session.query(VulnerabilityState.vuln_id).distinct().all()
+            alpine_vuln_ids = [v[0] for v in alpine_vuln_ids]
+            
+            print(f'I: Found {len(alpine_vuln_ids)} Alpine-relevant CVEs out of {Vulnerability.query.count()} total CVEs')
+            
+            # Export individual CVE files (only Alpine-relevant)
+            vulnerabilities = Vulnerability.query.filter(Vulnerability.vuln_id.in_(alpine_vuln_ids)).all()
             for vuln in vulnerabilities:
                 # Extract CVE ID from the vulnerability
                 cve_id = vuln.cve_id
@@ -172,27 +182,30 @@ def register(app):
                     with open(filename, 'w') as f:
                         json.dump(cve_data, f, indent=2)
             
-            # Also export consolidated files for reference
+            # Also export consolidated files for reference (Alpine-relevant only)
             vuln_data = [v.to_json() for v in vulnerabilities]
             with open('data/vulnerabilities.json', 'w') as f:
                 json.dump(vuln_data, f, indent=2)
             
-            # Export packages
+            # Export packages (all Alpine packages)
             packages = Package.query.all()
             pkg_data = [p.to_json() for p in packages]
             with open('data/packages.json', 'w') as f:
                 json.dump(pkg_data, f, indent=2)
             
-            # Export package versions
+            # Export package versions (all Alpine package versions)
             package_versions = PackageVersion.query.all()
             pkgver_data = [pv.to_json() for pv in package_versions]
             with open('data/package_versions.json', 'w') as f:
                 json.dump(pkgver_data, f, indent=2)
             
-            # Export vulnerability states
+            # Export vulnerability states (all Alpine vulnerability states)
             vuln_states = VulnerabilityState.query.all()
             state_data = [vs.to_json() for vs in vuln_states]
             with open('data/vulnerability_states.json', 'w') as f:
                 json.dump(state_data, f, indent=2)
         
-        print(f"Export completed successfully! Created {len(vulnerabilities)} individual CVE files.")
+        print(f"I: Export completed successfully!")
+        print(f"I: Created {len(vulnerabilities)} individual CVE files (Alpine-relevant only)")
+        print(f"I: Total CVEs in database: {Vulnerability.query.count()}")
+        print(f"I: Alpine-relevant CVEs exported: {len(vulnerabilities)}")
