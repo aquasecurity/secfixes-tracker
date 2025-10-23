@@ -48,12 +48,14 @@ jobs:
 
       - name: Import NVD
         run: |
-          # Import recent NVD CVEs using days parameter (matching original commit d983693e)
-          # This should result in ~3,652 CVEs instead of 292,000+ historical CVEs
-          # Original strategy: import recent CVEs from last 7 days, not entire years
-          echo "=== Importing recent CVEs (last 7 days) ==="
-          flask import-nvd 7
-          echo "=== Recent CVEs completed ==="
+          # Import NVD CVEs year by year from 2018 to current year
+          # Database will contain all CVEs, but export filters to Alpine-relevant ones
+          for year in $(seq 2018 $(date "+%Y")); do
+            echo "=== Importing CVEs for year $year ==="
+            flask import-nvd $year
+            echo "=== Completed year $year ==="
+          done
+          echo "=== All years completed ==="
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
