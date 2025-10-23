@@ -124,11 +124,13 @@ def register(app):
                             else:
                                 skipped_count += 1
                         
-                        # Thread-safe database write
+                        # Thread-safe database write with application context
                         with db_lock:
-                            for item in processed_items:
-                                process_nvd_cve_item(item)
-                            db.session.commit()
+                            # Create application context for this thread
+                            with app.app_context():
+                                for item in processed_items:
+                                    process_nvd_cve_item(item)
+                                db.session.commit()
                         
                         processed_count = len(processed_items)
                         
@@ -144,7 +146,8 @@ def register(app):
                     except Exception as e:
                         print(f'E: Error processing chunk {i}: {e}')
                         with db_lock:
-                            db.session.rollback()
+                            with app.app_context():
+                                db.session.rollback()
                         return 0, 0
                 
                 # Parallel processing with ThreadPoolExecutor
