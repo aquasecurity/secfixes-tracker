@@ -46,13 +46,18 @@ jobs:
       - name: Import secfixes
         run: flask import-secfixes
 
-      # NVD JSON 1.1 feeds were retired by NVD in December 2023
-      # TODO: Update to NVD API 2.0 or use Go importer
-      # - name: Import NVD
-      #   run: |
-      #     for year in $(seq 2018 $(date "+%Y")); do
-      #       flask import-nvd $year
-      #     done
+      - name: Import NVD
+        run: |
+          # Import NVD CVEs year by year from 2018 to current year
+          # Database will contain all CVEs, but export filters to Alpine-relevant ones
+          for year in $(seq 2018 $(date "+%Y")); do
+            echo "=== Importing CVEs for year $year ==="
+            flask import-nvd $year
+            echo "=== Completed year $year ==="
+          done
+          echo "=== All years completed ==="
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
       - name: Update states
         run: flask update-states

@@ -1,17 +1,18 @@
-from . import app, db
+from . import db
 from .version import APKVersion
 
-import json
-from flask import request
+from flask import request, current_app
 
 
-@app.cli.command('init-db', help='Initializes the database.')
-def init_db():
-    db.create_all()
+def register(app):
+    @app.cli.command('init-db', help='Initializes the database.')
+    def init_db():
+        db.create_all()
 
 
 class Vulnerability(db.Model):
-    vuln_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, primary_key=True,
+                        index=True, autoincrement=True)
     cve_id = db.Column(db.String(80), index=True)
     description = db.Column(db.Text)
     cvss3_score = db.Column(db.Numeric)
@@ -50,11 +51,11 @@ class Vulnerability(db.Model):
             'id': self.json_ld_id,
             'description': self.description,
             'cvss3': {
-                 'score': float(self.cvss3_score),
-                 'vector': self.cvss3_vector,
+                'score': float(self.cvss3_score) if self.cvss3_score else 0.0,
+                'vector': self.cvss3_vector,
             },
             'ref': [ref.to_json_ld() for ref in self.references],
-            'state': [state.to_json_ld() for state in self.states],
+            'state': [state.to_json_ld() for state in self.published_states],
             'cpeMatch': [cpe_match.to_json_ld() for cpe_match in self.cpe_matches],
         }
 
@@ -79,8 +80,10 @@ class Vulnerability(db.Model):
 
 
 class VulnerabilityReference(db.Model):
-    vuln_ref_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
-    vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
+    vuln_ref_id = db.Column(db.Integer, primary_key=True,
+                            index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, db.ForeignKey(
+        'vulnerability.vuln_id'), nullable=False, index=True)
     vuln = db.relationship('Vulnerability', backref='references')
     ref_type = db.Column(db.String(80))
     ref_uri = db.Column(db.Text, index=True)
@@ -90,7 +93,8 @@ class VulnerabilityReference(db.Model):
 
     @classmethod
     def find_or_create(cls, vuln: Vulnerability, ref_type: str, ref_uri: str):
-        ref = cls.query.filter_by(vuln_id=vuln.vuln_id, ref_uri=ref_uri).first()
+        ref = cls.query.filter_by(
+            vuln_id=vuln.vuln_id, ref_uri=ref_uri).first()
 
         if not ref:
             ref = cls()
@@ -122,7 +126,8 @@ class VulnerabilityReference(db.Model):
         }
 
 class Package(db.Model):
-    package_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
+    package_id = db.Column(db.Integer, primary_key=True,
+                           index=True, autoincrement=True)
     package_name = db.Column(db.Text)
 
     def __repr__(self):
@@ -141,6 +146,13 @@ class Package(db.Model):
     def published_versions(self):
         return [pkgver for pkgver in self.versions if pkgver.published]
 
+    def to_json(self):
+        return {
+            'id': self.package_id,
+            'type': 'Package',
+            'packageName': self.package_name,
+        }
+
     def resolved_vulns(self):
         return list({state.vuln for ver in self.versions for state in ver.states if state.fixed})
 
@@ -149,7 +161,7 @@ class Package(db.Model):
 
     @property
     def excluded(self):
-        return self.package_name in app.config.get('PACKAGE_EXCLUSIONS', [])
+        return self.package_name in current_app.config.get('PACKAGE_EXCLUSIONS', [])
 
     @property
     def json_ld_id(self):
@@ -166,8 +178,10 @@ class Package(db.Model):
 
 
 class PackageVersion(db.Model):
-    package_version_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
-    package_id = db.Column(db.Integer, db.ForeignKey('package.package_id'), nullable=False, index=True)
+    package_version_id = db.Column(
+        db.Integer, primary_key=True, index=True, autoincrement=True)
+    package_id = db.Column(db.Integer, db.ForeignKey(
+        'package.package_id'), nullable=False, index=True)
     version = db.Column(db.String(80))
     package = db.relationship('Package', backref='versions')
     repo = db.Column(db.String(80), index=True)
@@ -179,7 +193,8 @@ class PackageVersion(db.Model):
 
     @classmethod
     def find_or_create(cls, package: Package, version: str, repo: str):
-        pkgver = cls.query.filter_by(package_id=package.package_id, version=version, repo=repo).first()
+        pkgver = cls.query.filter_by(
+            package_id=package.package_id, version=version, repo=repo).first()
 
         if not pkgver:
             pkgver = cls()
@@ -211,11 +226,25 @@ class PackageVersion(db.Model):
             'state': [state.to_json_ld() for state in self.states],
         }
 
+    def to_json(self):
+        return {
+            'id': self.package_version_id,
+            'type': 'PackageVersion',
+            'packageName': self.package.package_name,
+            'version': self.version,
+            'repo': self.repo,
+            'published': self.published,
+            'maintainer': self.maintainer,
+        }
+
 
 class VulnerabilityState(db.Model):
-    vuln_state_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
-    vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
-    package_version_id = db.Column(db.Integer, db.ForeignKey('package_version.package_version_id'), nullable=False, index=True)
+    vuln_state_id = db.Column(
+        db.Integer, primary_key=True, index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, db.ForeignKey(
+        'vulnerability.vuln_id'), nullable=False, index=True)
+    package_version_id = db.Column(db.Integer, db.ForeignKey(
+        'package_version.package_version_id'), nullable=False, index=True)
     fixed = db.Column(db.Boolean)
     vuln = db.relationship('Vulnerability', backref='states')
     package_version = db.relationship('PackageVersion', backref='states')
@@ -247,6 +276,7 @@ class VulnerabilityState(db.Model):
             'vuln': self.vuln.json_ld_id,
             'fixed': self.fixed,
             'packageVersion': self.package_version.json_ld_id,
+            'repo': self.package_version.repo,
         }
 
     def to_json(self):
@@ -262,9 +292,12 @@ class VulnerabilityState(db.Model):
         }
 
 class CPEMatch(db.Model):
-    cpe_match_id = db.Column(db.Integer, primary_key=True, index=True, autoincrement=True)
-    vuln_id = db.Column(db.Integer, db.ForeignKey('vulnerability.vuln_id'), nullable=False, index=True)
-    package_id = db.Column(db.Integer, db.ForeignKey('package.package_id'), nullable=False, index=True)
+    cpe_match_id = db.Column(db.Integer, primary_key=True,
+                             index=True, autoincrement=True)
+    vuln_id = db.Column(db.Integer, db.ForeignKey(
+        'vulnerability.vuln_id'), nullable=False, index=True)
+    package_id = db.Column(db.Integer, db.ForeignKey(
+        'package.package_id'), nullable=False, index=True)
     minimum_version = db.Column(db.String(80))
     minimum_version_op = db.Column(db.String(5))
     maximum_version = db.Column(db.String(80))
@@ -351,6 +384,7 @@ class CPEMatch(db.Model):
             'cpeUri': self.cpe_uri,
         }
 
+
     def to_json(self):
         return {
             'id': self.cpe_match_id,
@@ -363,15 +397,3 @@ class CPEMatch(db.Model):
             'maximumVersionOp': self.maximum_version_op,
             'cpeUri': self.cpe_uri,
         }
-
-
-@app.cli.command('export', help='Export JSON files.')
-def export():
-    vulns = Vulnerability.query.all()
-    for vuln in vulns:
-        is_vulnerable = False in [state.fixed for state in vuln.states]
-        if not is_vulnerable:
-            continue
-
-        with open(f'data/{vuln.cve_id}.json', 'w') as f:
-            json.dump(vuln.to_json(), f, indent=4)
