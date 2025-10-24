@@ -84,9 +84,9 @@ def register(app):
                 
                 print(f'I: Breaking {year} into {len(chunks)} chunks of max 30 days each for optimal parallelism')
                 
-                # Estimate time with parallel processing
-                max_workers = 12 if has_api_key else 4  # Higher workers for pagination workload
-                estimated_time = len(chunks) * 2.0 / max_workers  # Optimized for smaller chunks
+                # Estimate time with parallel processing (conservative for rate limits)
+                max_workers = 8 if has_api_key else 3  # Conservative to avoid rate limits
+                estimated_time = len(chunks) * 2.5 / max_workers  # Account for pagination and rate limits
                 print(f'I: Estimated time with {max_workers} parallel workers: {estimated_time/60:.1f} minutes for {year}')
                 
                 total_found = 0
@@ -128,10 +128,12 @@ def register(app):
                                 
                             start_index += results_per_page
                             
-                            # Brief pause only for pagination within chunk (with API key)
+                            # Brief pause for pagination within chunk (rate limit safe)
+                            import time
                             if has_api_key:
-                                import time
-                                time.sleep(0.2)  # Minimal delay with API key
+                                time.sleep(0.6)  # Conservative delay with API key (50 req/30s = 1.67s per req)
+                            else:
+                                time.sleep(6.0)  # Without API key (5 req/30s = 6s per req)
                         
                         vulnerabilities = all_vulnerabilities
                         print(f'I: Chunk {i} complete: {len(vulnerabilities)} total CVEs processed')
