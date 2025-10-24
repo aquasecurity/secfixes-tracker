@@ -70,22 +70,23 @@ def register(app):
                 start_date = datetime.datetime(year, 1, 1)
                 end_date = datetime.datetime(year, 12, 31, 23, 59, 59)
                 
-                # Calculate chunks of 120 days
+                # Calculate chunks of 30 days (smaller chunks = better parallelism)
                 chunks = []
                 current_start = start_date
+                chunk_days = 29  # Smaller chunks for optimal parallel distribution
                 
                 while current_start < end_date:
-                    current_end = min(current_start + datetime.timedelta(days=119, hours=23, minutes=59, seconds=59), end_date)
+                    current_end = min(current_start + datetime.timedelta(days=chunk_days, hours=23, minutes=59, seconds=59), end_date)
                     chunks.append((current_start, current_end))
                     current_start = current_end + datetime.timedelta(seconds=1)
                 
                 print(f'I: Will process {len(chunks)} chunks for year {year}')
                 
-                print(f'I: Breaking {year} into {len(chunks)} chunks of max 120 days each')
+                print(f'I: Breaking {year} into {len(chunks)} chunks of max 30 days each for optimal parallelism')
                 
                 # Estimate time with parallel processing
-                max_workers = 6 if has_api_key else 3  # Increased workers for better performance
-                estimated_time = len(chunks) * 1.5 / max_workers  # Parallel speedup
+                max_workers = 12 if has_api_key else 4  # Higher workers for pagination workload
+                estimated_time = len(chunks) * 2.0 / max_workers  # Optimized for smaller chunks
                 print(f'I: Estimated time with {max_workers} parallel workers: {estimated_time/60:.1f} minutes for {year}')
                 
                 total_found = 0
@@ -126,6 +127,11 @@ def register(app):
                                 break
                                 
                             start_index += results_per_page
+                            
+                            # Brief pause only for pagination within chunk (with API key)
+                            if has_api_key:
+                                import time
+                                time.sleep(0.2)  # Minimal delay with API key
                         
                         vulnerabilities = all_vulnerabilities
                         print(f'I: Chunk {i} complete: {len(vulnerabilities)} total CVEs processed')
