@@ -84,7 +84,7 @@ def register(app):
                 print(f'I: Breaking {year} into {len(chunks)} chunks of max 120 days each')
                 
                 # Estimate time with parallel processing
-                max_workers = 3 if has_api_key else 2  # Fewer workers without API key
+                max_workers = 6 if has_api_key else 3  # Increased workers for better performance
                 estimated_time = len(chunks) * 1.5 / max_workers  # Parallel speedup
                 print(f'I: Estimated time with {max_workers} parallel workers: {estimated_time/60:.1f} minutes for {year}')
                 

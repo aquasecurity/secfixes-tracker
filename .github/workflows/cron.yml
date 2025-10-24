@@ -58,13 +58,21 @@ jobs:
           
           # Supplemental import: Use short modification date windows to catch
           # any CVEs missed by publication date filtering (NVD API indexing issues)
-          echo "=== Supplemental import: Recent modifications (rolling 7-day windows) ==="
-          # Import last 12 weeks in 7-day chunks (covers ~3 months of modifications)
-          for weeks_back in $(seq 0 11); do
-            days_back=$((weeks_back * 7))
-            echo "Importing modifications from $days_back days ago..."
-            flask import-nvd $((days_back + 7))
-          done
+          echo "=== Supplemental import: Recent modifications (parallel 7-day windows) ==="
+          # Run 4 parallel batches of 3 weeks each to optimize time
+          (
+            flask import-nvd 7 && flask import-nvd 14 && flask import-nvd 21
+          ) &
+          (
+            flask import-nvd 28 && flask import-nvd 35 && flask import-nvd 42
+          ) &
+          (
+            flask import-nvd 49 && flask import-nvd 56 && flask import-nvd 63
+          ) &
+          (
+            flask import-nvd 70 && flask import-nvd 77 && flask import-nvd 84
+          ) &
+          wait  # Wait for all parallel imports to complete
           echo "=== Supplemental import completed ==="
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
