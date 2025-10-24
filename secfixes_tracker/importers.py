@@ -84,9 +84,9 @@ def register(app):
                 
                 print(f'I: Breaking {year} into {len(chunks)} chunks of max 30 days each for optimal parallelism')
                 
-                # Estimate time with parallel processing (optimized for small chunks)
-                max_workers = 15 if has_api_key else 3  # More workers for smaller chunks
-                estimated_time = len(chunks) * 1.5 / max_workers  # Smaller chunks need less time each
+                # Estimate time with parallel processing (rate limit conservative)
+                max_workers = 3 if has_api_key else 2  # Conservative for rate limits + pagination
+                estimated_time = len(chunks) * 2.0 / max_workers  # Account for pagination overhead
                 print(f'I: Estimated time with {max_workers} parallel workers: {estimated_time/60:.1f} minutes for {year}')
                 
                 total_found = 0
@@ -131,7 +131,7 @@ def register(app):
                             # Brief pause for pagination within chunk (rate limit safe)
                             import time
                             if has_api_key:
-                                time.sleep(0.6)  # Conservative delay with API key (50 req/30s = 1.67s per req)
+                                time.sleep(1.0)  # Conservative delay with API key (50 req/30s = 1.67s per req)
                             else:
                                 time.sleep(6.0)  # Without API key (5 req/30s = 6s per req)
                         
