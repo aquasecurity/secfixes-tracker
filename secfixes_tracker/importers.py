@@ -70,10 +70,10 @@ def register(app):
                 start_date = datetime.datetime(year, 1, 1)
                 end_date = datetime.datetime(year, 12, 31, 23, 59, 59)
                 
-                # Calculate chunks of 30 days (smaller chunks = better parallelism)
+                # Calculate chunks of 30 days (optimal balance)
                 chunks = []
                 current_start = start_date
-                chunk_days = 29  # Smaller chunks for optimal parallel distribution
+                chunk_days = 29  # 30-day chunks for good parallel distribution
                 
                 while current_start < end_date:
                     current_end = min(current_start + datetime.timedelta(days=chunk_days, hours=23, minutes=59, seconds=59), end_date)
@@ -84,9 +84,9 @@ def register(app):
                 
                 print(f'I: Breaking {year} into {len(chunks)} chunks of max 30 days each for optimal parallelism')
                 
-                # Estimate time with parallel processing (conservative for rate limits)
-                max_workers = 8 if has_api_key else 3  # Conservative to avoid rate limits
-                estimated_time = len(chunks) * 2.5 / max_workers  # Account for pagination and rate limits
+                # Estimate time with parallel processing (optimized for small chunks)
+                max_workers = 15 if has_api_key else 3  # More workers for smaller chunks
+                estimated_time = len(chunks) * 1.5 / max_workers  # Smaller chunks need less time each
                 print(f'I: Estimated time with {max_workers} parallel workers: {estimated_time/60:.1f} minutes for {year}')
                 
                 total_found = 0
