@@ -97,17 +97,38 @@ def register(app):
                     
                     try:
                         # Use publication date filtering with 120-day limit
-                        cve_resp = api.cves(
-                            pub_start_date=chunk_start,
-                            pub_end_date=chunk_end
-                        )
+                        # Handle pagination to get ALL CVEs in date range
+                        all_vulnerabilities = []
+                        start_index = 0
+                        results_per_page = 2000
                         
-                        if 'vulnerabilities' not in cve_resp:
-                            print(f'E: No vulnerabilities found in chunk {i}')
-                            return 0, 0
+                        while True:
+                            cve_resp = api.cves(
+                                pub_start_date=chunk_start,
+                                pub_end_date=chunk_end,
+                                start_index=start_index
+                            )
                             
-                        vulnerabilities = cve_resp['vulnerabilities']
-                        print(f'I: Found {len(vulnerabilities)} CVEs in chunk {i}/{len(chunks)}')
+                            if 'vulnerabilities' not in cve_resp:
+                                print(f'E: No vulnerabilities found in chunk {i}')
+                                break
+                                
+                            vulnerabilities = cve_resp['vulnerabilities']
+                            total_results = cve_resp.get('totalResults', 0)
+                            current_count = len(vulnerabilities)
+                            
+                            all_vulnerabilities.extend(vulnerabilities)
+                            
+                            print(f'I: Found {current_count} CVEs in chunk {i}/{len(chunks)} page {start_index//results_per_page + 1} (total: {len(all_vulnerabilities)}/{total_results})')
+                            
+                            # Check if we've got all results
+                            if len(all_vulnerabilities) >= total_results or current_count < results_per_page:
+                                break
+                                
+                            start_index += results_per_page
+                        
+                        vulnerabilities = all_vulnerabilities
+                        print(f'I: Chunk {i} complete: {len(vulnerabilities)} total CVEs processed')
                         
                         # Process each vulnerability with filtering
                         import re
