@@ -50,7 +50,7 @@ jobs:
         run: |
           # Import NVD CVEs year by year from 2018 to current year
           # Database will contain all CVEs, but export filters to Alpine-relevant ones
-          for year in $(seq 2018 $(date "+%Y")); do
+          for year in $(seq 2018 2025); do
             echo "=== Importing CVEs for year $year ==="
             flask import-nvd $year
             echo "=== Completed year $year ==="
