@@ -46,15 +46,57 @@ jobs:
       - name: Import secfixes
         run: flask import-secfixes
 
-      - name: Import NVD
+      - name: Clone vuln-list-nvd and cleanup unwanted data
         run: |
-          # Import NVD CVEs year by year from 2018 to current year
-          # Database will contain all CVEs, but export filters to Alpine-relevant ones
-          for year in $(seq 2018 $(date "+%Y")); do
-            echo "=== Importing CVEs for year $year ==="
-            flask import-nvd $year
-            echo "=== Completed year $year ==="
+          echo "=== Cloning aquasecurity/vuln-list-nvd repository ==="
+          git clone https://github.com/aquasecurity/vuln-list-nvd.git --depth 1
+          echo "✓ Repository cloned"
+          
+          echo "=== Cleaning up unwanted folders to save disk space ==="
+          cd vuln-list-nvd
+          # Keep only the years we need (2018-current)
+          current_year=$(date "+%Y")
+          for dir in api/*/; do
+            year=$(basename "$dir")
+            if [[ "$year" =~ ^[0-9]{4}$ ]] && [ "$year" -lt 2018 ]; then
+              echo "Deleting pre-2018 data: $dir"
+              rm -rf "$dir"
+            fi
           done
+          
+          # Remove other non-API directories to save space
+          rm -rf .git docs README.md || true
+          cd ..
+          echo "✓ Cleanup completed"
+      
+      - name: Import NVD from local files with progressive cleanup
+        run: |
+          # Import NVD CVEs from local files with disk space management
+          echo "=== Importing ALL years with progressive cleanup ==="
+          for year in $(seq 2018 $(date "+%Y")); do
+            if [ -d "vuln-list-nvd/api/$year" ]; then
+              echo "=== Processing year $year ($(find vuln-list-nvd/api/$year -name '*.json' | wc -l) files) ==="
+              
+              # Import the year's data
+              timeout 60m flask import-nvd-files vuln-list-nvd/api/$year || echo "Year $year timed out, continuing..."
+              
+              # Immediately delete processed files to free disk space
+              echo "Cleaning up $year files to free disk space..."
+              rm -rf vuln-list-nvd/api/$year
+              
+              # Force garbage collection between years  
+              python3 -c "import gc; gc.collect()"
+              
+              # Show remaining disk space
+              df -h . | tail -1 | awk '{print "Disk usage: " $3 " used, " $4 " available"}'
+              echo "=== Completed and cleaned up year $year ==="
+            else
+              echo "=== Skipping year $year (directory not found) ==="
+            fi
+          done
+          
+          echo "=== Final cleanup: removing vuln-list-nvd directory ==="
+          rm -rf vuln-list-nvd
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
