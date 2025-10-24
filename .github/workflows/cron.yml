@@ -56,10 +56,15 @@ jobs:
             echo "=== Completed year $year ==="
           done
           
-          # Supplemental import: Use modification date for current year to catch
+          # Supplemental import: Use short modification date windows to catch
           # any CVEs missed by publication date filtering (NVD API indexing issues)
-          echo "=== Supplemental import: Recent modifications ==="
-          flask import-nvd 365
+          echo "=== Supplemental import: Recent modifications (rolling 7-day windows) ==="
+          # Import last 12 weeks in 7-day chunks (covers ~3 months of modifications)
+          for weeks_back in $(seq 0 11); do
+            days_back=$((weeks_back * 7))
+            echo "Importing modifications from $days_back days ago..."
+            flask import-nvd $((days_back + 7))
+          done
           echo "=== Supplemental import completed ==="
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
