@@ -70,10 +70,10 @@ def register(app):
                 start_date = datetime.datetime(year, 1, 1)
                 end_date = datetime.datetime(year, 12, 31, 23, 59, 59)
                 
-                # Calculate chunks of 30 days (optimal balance)
+                # Calculate chunks of 60 days (fewer chunks = fewer API calls)
                 chunks = []
                 current_start = start_date
-                chunk_days = 29  # 30-day chunks for good parallel distribution
+                chunk_days = 59  # 60-day chunks for fewer total API calls
                 
                 while current_start < end_date:
                     current_end = min(current_start + datetime.timedelta(days=chunk_days, hours=23, minutes=59, seconds=59), end_date)
@@ -82,11 +82,11 @@ def register(app):
                 
                 print(f'I: Will process {len(chunks)} chunks for year {year}')
                 
-                print(f'I: Breaking {year} into {len(chunks)} chunks of max 30 days each for optimal parallelism')
+                print(f'I: Breaking {year} into {len(chunks)} chunks of max 60 days each for rate limit efficiency')
                 
-                # Estimate time with parallel processing (rate limit conservative)
-                max_workers = 3 if has_api_key else 2  # Conservative for rate limits + pagination
-                estimated_time = len(chunks) * 2.0 / max_workers  # Account for pagination overhead
+                # Estimate time with parallel processing (balanced approach)
+                max_workers = 10 if has_api_key else 2  # Balanced workers for good performance
+                estimated_time = len(chunks) * 3.0 / max_workers  # Account for larger chunks + pagination
                 print(f'I: Estimated time with {max_workers} parallel workers: {estimated_time/60:.1f} minutes for {year}')
                 
                 total_found = 0
@@ -131,7 +131,7 @@ def register(app):
                             # Brief pause for pagination within chunk (rate limit safe)
                             import time
                             if has_api_key:
-                                time.sleep(1.0)  # Conservative delay with API key (50 req/30s = 1.67s per req)
+                                time.sleep(2.5)  # Conservative delay with API key for pagination
                             else:
                                 time.sleep(6.0)  # Without API key (5 req/30s = 6s per req)
                         
