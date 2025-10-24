@@ -56,23 +56,10 @@ jobs:
             echo "=== Completed year $year ==="
           done
           
-          # Supplemental import: Use short modification date windows to catch
-          # any CVEs missed by publication date filtering (NVD API indexing issues)
-          echo "=== Supplemental import: Recent modifications (parallel 7-day windows) ==="
-          # Run 4 parallel batches of 3 weeks each to optimize time
-          (
-            flask import-nvd 7 && flask import-nvd 14 && flask import-nvd 21
-          ) &
-          (
-            flask import-nvd 28 && flask import-nvd 35 && flask import-nvd 42
-          ) &
-          (
-            flask import-nvd 49 && flask import-nvd 56 && flask import-nvd 63
-          ) &
-          (
-            flask import-nvd 70 && flask import-nvd 77 && flask import-nvd 84
-          ) &
-          wait  # Wait for all parallel imports to complete
+          # Supplemental import: Use modification date for recent changes to catch
+          # any CVEs that may have been missed in year-based chunks
+          echo "=== Supplemental import: Recent modifications ==="
+          flask import-nvd 90
           echo "=== Supplemental import completed ==="
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
