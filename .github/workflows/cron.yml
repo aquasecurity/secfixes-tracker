@@ -55,12 +55,6 @@ jobs:
             flask import-nvd $year
             echo "=== Completed year $year ==="
           done
-          
-          # Supplemental import: Use modification date for recent changes to catch
-          # any CVEs that may have been missed in year-based chunks
-          echo "=== Supplemental import: Recent modifications ==="
-          flask import-nvd 90
-          echo "=== Supplemental import completed ==="
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
