@@ -58,8 +58,6 @@ def register(app):
             process_nvd_cve_item(item)
 
         db.session.commit()
-
-        
         print(f'I: Imported NVD feed successfully.')
 
     @app.cli.command('import-nvd-files', help='Import NVD CVEs from local JSON files.')
@@ -431,37 +429,18 @@ def register(app):
 
         if not cve_id:
             return
-        
-        # Filter to only process standard CVE-* format entries
-        # Skip non-CVE entries like xpe.json files
-        if not cve_id.startswith('CVE-'):
-            print(f'I: Skipping non-CVE entry: {cve_id}')
-            return
-        
-        # Additional validation: ensure it follows CVE-YYYY-NNNNN format
-        import re
-        cve_pattern = r'^CVE-\d{4}-\d{4,7}$'
-        if not re.match(cve_pattern, cve_id):
-            print(f'I: Skipping invalid CVE format: {cve_id}')
-            return
 
-        descriptions = cve.get('descriptions', [])
         cve_description = select(
-            descriptions,
-            lambda desc: desc.get('lang') == "en"
-        ).get('value', None)
-        # Fallback to first description value if EN not present
-        if not cve_description and descriptions:
-            cve_description = descriptions[0].get('value')
+            cve.get('descriptions', []),
+            lambda desc: desc['lang'] == "en"
+        ).get('value', [])
+        if not cve_description:
+            return
 
         print(f'I: Processing {cve_id}.')
 
-        # NVD API 2.0: cvssMetricV31 is a list, not a dict
-        cvssMetricV31 = cve.get('metrics', {}).get('cvssMetricV31', [])
-        if cvssMetricV31 and len(cvssMetricV31) > 0:
-            impact = cvssMetricV31[0].get('cvssData', {})
-        else:
-            impact = {}
+        impact = item.get('metrics', {}).get(
+            'cvssMetricV31', {}).get('cvssData', {})
 
         cvss3_score = impact.get('baseScore', None)
         cvss3_vector = impact.get('vectorString', None)
@@ -474,9 +453,7 @@ def register(app):
         db.session.add(vuln)
 
         if 'configurations' in cve and len(cve['configurations']) > 0:
-            # Process all configuration blocks, not just the first
-            for configuration in cve['configurations']:
-                process_nvd_cve_configurations(vuln, configuration)
+            process_nvd_cve_configurations(vuln, cve['configurations'][0])
 
         if 'references' in cve:
             process_nvd_cve_references(vuln, cve['references'])
