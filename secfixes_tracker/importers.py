@@ -37,252 +37,371 @@ LANGUAGE_REWRITERS = {
 
 
 def register(app):
+    
     @app.cli.command('import-nvd', help='Import a NVD feed.')
     @click.argument('days')
     def import_nvd_cve(days: str):
         api = nvd.API()
+
+        print(f'I: Importing NVD changes from {days} day(s) ago')
+
+        cve_resp = api.cves(
+            last_mod_start_date=datetime.datetime.now() - datetime.timedelta(days=int(days)),
+            last_mod_end_date=datetime.datetime.now(),
+        )
+
+        if 'vulnerabilities' not in cve_resp:
+            print(f"E: 'vulnerabilities' not found in NVD feed.")
+            exit(1)
+
+        for item in cve_resp['vulnerabilities']:
+            process_nvd_cve_item(item)
+
+        db.session.commit()
+        print(f'I: Imported NVD feed successfully.')
+
+    @app.cli.command('import-nvd-files', help='Import NVD CVEs from local JSON files.')
+    @click.argument('directory')  
+    def import_nvd_files(directory: str):
+        """Import NVD CVEs from local JSON files with optimized batch processing"""
+        import os
+        import json
+        import glob
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         
-        # Check if API key is available
-        has_api_key = api.api_token is not None
-        if has_api_key:
-            print(f'I: Using NVD API with key for higher rate limits')
-        else:
-            print(f'W: No NVD API key found, using limited rate (5 req/min)')
-        
-        # Check if input is a year (4 digits) for year-based import
-        # But exclude large numbers that are clearly days (like 2920)
-        if days.isdigit() and len(days) == 4 and int(days) <= 2025:
-            year = int(days)
-            current_year = datetime.datetime.now().year
-            
-            if year < 1999 or year > current_year:
-                print(f'E: Invalid year {year}. Must be between 1999 and {current_year}')
-                return
-                
-            print(f'I: Importing NVD CVEs for year {year}')
-            
-            try:
-                # NVD API 2.0 has a 120-day limit for date ranges
-                # We need to break the year into 120-day chunks
-                print(f'I: NVD API 2.0 has 120-day limit for date ranges, using chunked approach')
-                
-                # Break the year into 120-day chunks
-                start_date = datetime.datetime(year, 1, 1)
-                end_date = datetime.datetime(year, 12, 31, 23, 59, 59)
-                
-                # Calculate chunks of 120 days
-                chunks = []
-                current_start = start_date
-                
-                while current_start < end_date:
-                    current_end = min(current_start + datetime.timedelta(days=119, hours=23, minutes=59, seconds=59), end_date)
-                    chunks.append((current_start, current_end))
-                    current_start = current_end + datetime.timedelta(seconds=1)
-                
-                print(f'I: Will process {len(chunks)} chunks for year {year}')
-                
-                print(f'I: Breaking {year} into {len(chunks)} chunks of max 120 days each')
-                
-                # Estimate time with parallel processing
-                max_workers = 3 if has_api_key else 2  # Fewer workers without API key
-                estimated_time = len(chunks) * 1.5 / max_workers  # Parallel speedup
-                print(f'I: Estimated time with {max_workers} parallel workers: {estimated_time/60:.1f} minutes for {year}')
-                
-                total_found = 0
-                db_lock = Lock()  # Thread-safe database access
-                
-                def process_chunk(chunk_info):
-                    """Process a single chunk in parallel"""
-                    i, chunk_start, chunk_end = chunk_info
-                    
-                    try:
-                        # Use publication date filtering with 120-day limit
-                        cve_resp = api.cves(
-                            pub_start_date=chunk_start,
-                            pub_end_date=chunk_end
-                        )
-                        
-                        if 'vulnerabilities' not in cve_resp:
-                            print(f'E: No vulnerabilities found in chunk {i}')
-                            return 0, 0
-                            
-                        vulnerabilities = cve_resp['vulnerabilities']
-                        print(f'I: Found {len(vulnerabilities)} CVEs in chunk {i}/{len(chunks)}')
-                        
-                        # Process each vulnerability with filtering
-                        import re
-                        processed_items = []
-                        skipped_count = 0
-                        
-                        for item in vulnerabilities:
-                            if 'cve' in item:
-                                cve_id = item['cve'].get('id', '')
-                                if cve_id.startswith('CVE-') and re.match(r'^CVE-\d{4}-\d{4,7}$', cve_id):
-                                    processed_items.append(item)
-                                else:
-                                    skipped_count += 1
-                            else:
-                                skipped_count += 1
-                        
-                        # Thread-safe database write with application context
-                        with db_lock:
-                            # Create application context for this thread
-                            with app.app_context():
-                                for item in processed_items:
-                                    process_nvd_cve_item(item)
-                                db.session.commit()
-                        
-                        processed_count = len(processed_items)
-                        
-                        if skipped_count > 0:
-                            print(f'I: Chunk {i}: Processed {processed_count} CVEs, skipped {skipped_count} non-CVE entries')
-                        
-                        # Show progress
-                        progress = (i / len(chunks)) * 100
-                        print(f'I: Progress: {progress:.1f}% ({i}/{len(chunks)} chunks)')
-                        
-                        return processed_count, skipped_count
-                        
-                    except Exception as e:
-                        print(f'E: Error processing chunk {i}: {e}')
-                        with db_lock:
-                            with app.app_context():
-                                db.session.rollback()
-                        return 0, 0
-                
-                # Parallel processing with ThreadPoolExecutor
-                print(f'I: Using {max_workers} parallel workers for API calls')
-                
-                chunk_infos = [(i, chunk_start, chunk_end) for i, (chunk_start, chunk_end) in enumerate(chunks, 1)]
-                
-                with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    # Submit all chunks for parallel processing
-                    futures = {executor.submit(process_chunk, chunk_info): chunk_info for chunk_info in chunk_infos}
-                    
-                    # Process results as they complete
-                    for future in as_completed(futures):
-                        processed_count, skipped_count = future.result()
-                        total_found += processed_count
-                
-                print(f'I: Successfully imported {total_found} CVEs for {year}')
-                
-            except Exception as e:
-                print(f'E: Error importing CVEs for {year}: {e}')
-                db.session.rollback()
+        if not os.path.exists(directory):
+            print(f'E: Directory {directory} does not exist.')
             return
         
-        # Original logic for days-based import
-        total_days = int(days)
-        print(f'I: Importing NVD changes from {days} day(s) ago')
+        # Find all CVE JSON files in the directory
+        cve_files = glob.glob(os.path.join(directory, 'CVE-*.json'))
         
-        # For large date ranges, use pagination instead of date filtering
-        # (NVD API 2.0 date filtering doesn't work - returns 404 errors)
-        if total_days > 365:  # More than 1 year
-            print(f'I: Large date range detected ({total_days} days)')
-            print(f'I: Using pagination approach (NVD API date filtering not available)')
-            
-            # Calculate how many pages we need to get recent CVEs
-            # NVD API has ~315k total CVEs, sorted oldest first
-            # To get recent CVEs, we need to start from higher indices
-            total_cves = 314940  # Approximate total from API
-            results_per_page = 2000
-            
-            # For 8 years, we want CVEs from roughly the last 8 years
-            # Estimate: 8 years = ~2920 days, assume ~100 CVEs per day = ~292k CVEs
-            # So we want to start from index ~22k to get recent CVEs
-            start_index = max(0, total_cves - (total_days * 100))  # Rough estimate
-            end_index = total_cves
-            
-            print(f'I: Will fetch CVEs from index {start_index} to {end_index}')
-            print(f'I: This should include recent CVEs from the last {total_days} days')
-            
-            current_index = start_index
-            page_count = 0
-            
-            while current_index < end_index:
-                page_count += 1
-                progress = ((current_index - start_index) / (end_index - start_index)) * 100
-                print(f'I: Processing page {page_count}: index {current_index} ({progress:.1f}%)')
-                
-                # Retry logic with exponential backoff for rate limiting
-                max_retries = 5
-                retry_count = 0
-                success = False
-                
-                while retry_count < max_retries and not success:
-                    try:
-                        cve_resp = api.cves(start_index=current_index)
-                        
-                        if 'vulnerabilities' in cve_resp and cve_resp['vulnerabilities']:
-                            print(f'I: Found {len(cve_resp["vulnerabilities"])} CVEs in this page')
-                            for item in cve_resp['vulnerabilities']:
-                                process_nvd_cve_item(item)
-                            
-                            db.session.commit()
-                            print(f'I: Committed page {page_count}')
-                        else:
-                            print(f'I: No CVEs found in page {page_count}')
-                        
-                        success = True
-                        
-                    except Exception as e:
-                        retry_count += 1
-                        error_msg = str(e)
-                        
-                        if "429" in error_msg or "Too Many Requests" in error_msg:
-                            # Rate limit hit - exponential backoff
-                            if has_api_key:
-                                wait_time = min(2 ** retry_count, 30)  # Max 30 seconds with API key
-                            else:
-                                wait_time = min(2 ** retry_count, 60)  # Max 60 seconds without API key
-                            print(f'W: Rate limit hit for page {page_count}, retry {retry_count}/{max_retries}, waiting {wait_time}s...')
-                            import time
-                            time.sleep(wait_time)
-                        elif "404" in error_msg:
-                            # 404 error - likely no more data, stop
-                            print(f'W: No more data found at index {current_index} (404), stopping...')
-                            success = True  # Treat as success to stop
-                        else:
-                            # Other error - wait and retry
-                            wait_time = min(2 ** retry_count, 30)  # Max 30 seconds
-                            print(f'W: Error processing page {page_count}, retry {retry_count}/{max_retries}: {error_msg}')
-                            print(f'I: Waiting {wait_time}s before retry...')
-                            import time
-                            time.sleep(wait_time)
-                
-                if not success:
-                    print(f'E: Failed to process page {page_count} after {max_retries} retries, stopping...')
-                    break
-                
-                # Move to next page
-                current_index += results_per_page
-                
-                # Brief pause between pages to be respectful to the API
-                if has_api_key:
-                    wait_time = 1  # 1 second with API key
-                else:
-                    wait_time = 3  # 3 seconds without API key
-                print(f'I: Waiting {wait_time} second(s) before next page...')
-                import time
-                time.sleep(wait_time)
-                
-        else:
-            # For smaller date ranges, use original approach
-            cve_resp = api.cves(
-                last_mod_start_date=datetime.datetime.now() - datetime.timedelta(days=total_days),
-                last_mod_end_date=datetime.datetime.now(),
-            )
-
-            if 'vulnerabilities' not in cve_resp:
-                print(f"E: 'vulnerabilities' not found in NVD feed.")
-                exit(1)
-
-            for item in cve_resp['vulnerabilities']:
-                process_nvd_cve_item(item)
-
-            db.session.commit()
+        if not cve_files:
+            print(f'I: No CVE files found in {directory}')
+            return
         
-        print(f'I: Imported NVD feed successfully.')
+        print(f'I: Processing {len(cve_files)} CVE files from {directory} with optimized batch processing')
+        
+        # OPTIMIZED: High performance settings now safe with progressive cleanup
+        max_workers = 20  # Full parallelization - progressive cleanup prevents resource buildup
+        batch_size = 2000 # Large batches for efficiency - only processing one year at a time
+        
+        def parse_cve_file(cve_file):
+            """Parse a single CVE file and return structured data"""
+            try:
+                with open(cve_file, 'r') as f:
+                    cve_data = json.load(f)
+                
+                # cve_data is already in the correct format for vuln-list-nvd
+                return parse_cve_data(cve_data), None
+                
+            except Exception as e:
+                return None, str(e)
+        
+        # Process files in batches with parallel parsing
+        processed_count = 0
+        skipped_count = 0
+        
+        for batch_start in range(0, len(cve_files), batch_size):
+            batch_end = min(batch_start + batch_size, len(cve_files))
+            batch_files = cve_files[batch_start:batch_end]
+            
+            print(f'I: Processing batch {batch_start//batch_size + 1}/{(len(cve_files)-1)//batch_size + 1}: {len(batch_files)} files')
+            
+            # Parse all files in parallel (no database operations)
+            batch_data = {
+                'vulnerabilities': [],
+                'references': [],
+                'cpe_matches': []
+            }
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all files in batch for parallel parsing
+                futures = {executor.submit(parse_cve_file, cve_file): cve_file for cve_file in batch_files}
+                
+                batch_processed = 0
+                batch_skipped = 0
+                
+                for future in as_completed(futures):
+                    cve_data, error = future.result()
+                    if cve_data:
+                        batch_processed += 1
+                        # Collect data for bulk operations
+                        batch_data['vulnerabilities'].extend(cve_data['vulnerabilities'])
+                        batch_data['references'].extend(cve_data['references'])
+                        batch_data['cpe_matches'].extend(cve_data['cpe_matches'])
+                    else:
+                        batch_skipped += 1
+                        if batch_skipped <= 5:  # Only show first few errors
+                            print(f'W: Error: {error}')
+            
+            # Single bulk database operation for entire batch
+            if batch_data['vulnerabilities']:
+                with app.app_context():
+                    bulk_insert_batch(batch_data)
+                    db.session.commit()
+                    print(f'   Bulk inserted: {len(batch_data["vulnerabilities"])} vulnerabilities, {len(batch_data["references"])} references, {len(batch_data["cpe_matches"])} CPE matches')
+                    
+                # Clear batch data and force garbage collection
+                batch_data.clear()
+                import gc
+                gc.collect()
+            
+            processed_count += batch_processed
+            skipped_count += batch_skipped
+            
+            print(f'   Batch complete: {batch_processed} processed, {batch_skipped} skipped')
+            print(f'I: Progress: {processed_count}/{len(cve_files)} files processed ({(processed_count/len(cve_files)*100):.1f}%)')
+        
+        print(f'I: Processed {processed_count} CVEs from local files with optimized batch processing')
+        if skipped_count > 0:
+            print(f'W: Skipped {skipped_count} files due to errors')
+
+    def parse_cve_data(cve_data):
+        """Parse CVE data and return structured data for bulk insertion"""
+        import re
+        
+        # vuln-list-nvd files have CVE data at root level, not wrapped in 'cve' key
+        cve = cve_data  # Direct structure: {"id": "CVE-...", "descriptions": [...], ...}
+        cve_id = cve.get('id', '')
+        
+        # Validate CVE ID format
+        cve_pattern = r'^CVE-\d{4}-\d{4,7}$'
+        if not re.match(cve_pattern, cve_id):
+            return {'vulnerabilities': [], 'references': [], 'cpe_matches': []}
+        
+        # Extract description
+        descriptions = cve.get('descriptions', [])
+        cve_description = None
+        for desc in descriptions:
+            if desc.get('lang') == "en":
+                cve_description = desc.get('value')
+                break
+        if not cve_description and descriptions:
+            cve_description = descriptions[0].get('value')
+        
+        # Extract CVSS data - handle both v31 and v40 metrics
+        metrics = cve.get('metrics', {})
+        cvss3_score = None
+        cvss3_vector = None
+        
+        # Try CVSS v3.1 first
+        cvssMetricV31 = metrics.get('cvssMetricV31', [])
+        if cvssMetricV31 and len(cvssMetricV31) > 0:
+            impact = cvssMetricV31[0].get('cvssData', {})
+            cvss3_score = impact.get('baseScore')
+            cvss3_vector = impact.get('vectorString')
+        
+        # Fallback to CVSS v4.0 if v3.1 not available
+        if not cvss3_score:
+            cvssMetricV40 = metrics.get('cvssMetricV40', [])
+            if cvssMetricV40 and len(cvssMetricV40) > 0:
+                impact = cvssMetricV40[0].get('cvssData', {})
+                cvss3_score = impact.get('baseScore')
+                cvss3_vector = impact.get('vectorString')
+        
+        # Build vulnerability data
+        vulnerability_data = {
+            'cve_id': cve_id,
+            'description': cve_description,
+            'cvss3_score': cvss3_score,
+            'cvss3_vector': cvss3_vector
+        }
+        
+        # Parse references
+        references_data = []
+        if 'references' in cve:
+            for ref in cve['references']:
+                ref_type = ref.get('source', '')
+                ref_tags = ref.get('tags', [])
+                ref_uri = ref.get('url', '')
+                
+                if ref_uri:
+                    if ref_tags:
+                        ref_type = ref_tags[0]
+                    
+                    references_data.append({
+                        'cve_id': cve_id,
+                        'ref_type': ref_type,
+                        'ref_uri': ref_uri
+                    })
+        
+        # Parse CPE matches
+        cpe_matches_data = []
+        if 'configurations' in cve and len(cve['configurations']) > 0:
+            for configuration in cve['configurations']:
+                if 'nodes' in configuration:
+                    for node in configuration['nodes']:
+                        if 'cpeMatch' in node:
+                            for match in node['cpeMatch']:
+                                cpe_matches_data.append({
+                                    'cve_id': cve_id,
+                                    'cpe23Uri': match.get('criteria', ''),
+                                    'vulnerable': match.get('vulnerable', False)
+                                })
+        
+        return {
+            'vulnerabilities': [vulnerability_data],
+            'references': references_data,
+            'cpe_matches': cpe_matches_data
+        }
+
+    def bulk_insert_batch(batch_data):
+        """Perform bulk database operations for a batch of CVE data"""
+        # FIXED: Removed ON CONFLICT clauses that were causing sqlite errors
+        print(f"I: bulk_insert_batch called - using FIXED version (no ON CONFLICT)")
+        from sqlalchemy.dialects.sqlite import insert
+        
+        # Bulk insert vulnerabilities with conflict handling
+        if batch_data['vulnerabilities']:
+            # Get existing CVE IDs to avoid duplicates
+            existing_cves = set()
+            cve_ids = [v['cve_id'] for v in batch_data['vulnerabilities']]
+            if cve_ids:
+                existing_vulns = db.session.query(Vulnerability.cve_id).filter(Vulnerability.cve_id.in_(cve_ids)).all()
+                existing_cves = {row[0] for row in existing_vulns}
+            
+            # Filter out existing CVEs for insert
+            new_vulns = [v for v in batch_data['vulnerabilities'] if v['cve_id'] not in existing_cves]
+            
+            if new_vulns:
+                # Simple bulk insert for new vulnerabilities
+                db.session.bulk_insert_mappings(Vulnerability, new_vulns)
+                print(f'   Inserted {len(new_vulns)} new vulnerabilities')
+            
+            # Update existing vulnerabilities if needed
+            existing_vulns = [v for v in batch_data['vulnerabilities'] if v['cve_id'] in existing_cves]
+            if existing_vulns:
+                for vuln_data in existing_vulns:
+                    existing_vuln = db.session.query(Vulnerability).filter_by(cve_id=vuln_data['cve_id']).first()
+                    if existing_vuln:
+                        existing_vuln.description = vuln_data['description']
+                        existing_vuln.cvss3_score = vuln_data['cvss3_score']
+                        existing_vuln.cvss3_vector = vuln_data['cvss3_vector']
+                print(f'   Updated {len(existing_vulns)} existing vulnerabilities')
+        
+        # Bulk insert references
+        if batch_data['references']:
+            # Get vulnerability IDs for references
+            vuln_ids = {}
+            for ref in batch_data['references']:
+                cve_id = ref['cve_id']
+                if cve_id not in vuln_ids:
+                    vuln = Vulnerability.query.filter_by(cve_id=cve_id).first()
+                    if vuln:
+                        vuln_ids[cve_id] = vuln.vuln_id
+            
+            # Prepare reference data with vuln_id
+            ref_data = []
+            for ref in batch_data['references']:
+                cve_id = ref['cve_id']
+                if cve_id in vuln_ids:
+                    ref_data.append({
+                        'vuln_id': vuln_ids[cve_id],
+                        'ref_type': ref['ref_type'],
+                        'ref_uri': ref['ref_uri']
+                    })
+            
+            if ref_data:
+                # Simple bulk insert for references (duplicates filtered by unique constraints if any)
+                db.session.bulk_insert_mappings(VulnerabilityReference, ref_data)
+                print(f'   Inserted {len(ref_data)} references')
+        
+        # Bulk insert CPE matches with proper package creation
+        if batch_data['cpe_matches']:
+            # Get vulnerability IDs for CPE matches
+            vuln_ids = {}
+            for cpe in batch_data['cpe_matches']:
+                cve_id = cpe['cve_id']
+                if cve_id not in vuln_ids:
+                    vuln = Vulnerability.query.filter_by(cve_id=cve_id).first()
+                    if vuln:
+                        vuln_ids[cve_id] = vuln.vuln_id
+            
+            # Create packages and CPE matches
+            package_cache = {}
+            cpe_matches_to_insert = []
+            
+            for cpe in batch_data['cpe_matches']:
+                cve_id = cpe['cve_id']
+                if cve_id in vuln_ids:
+                    # Parse CPE URI to extract package name
+                    package_name = extract_package_name_from_cpe(cpe['cpe23Uri'])
+                    if package_name:
+                        # Get or create package
+                        if package_name not in package_cache:
+                            pkg = Package.query.filter_by(package_name=package_name).first()
+                            if not pkg:
+                                pkg = Package(package_name=package_name)
+                                db.session.add(pkg)
+                                db.session.flush()  # Get the package_id
+                            package_cache[package_name] = pkg.package_id
+                        
+                        # Prepare CPE match data
+                        cpe_matches_to_insert.append({
+                            'vuln_id': vuln_ids[cve_id],
+                            'package_id': package_cache[package_name],
+                            'vulnerable': cpe['vulnerable'],
+                            'cpe_uri': cpe['cpe23Uri'],
+                            'minimum_version': None,  # Parse from CPE if needed
+                            'minimum_version_op': None,
+                            'maximum_version': None,
+                            'maximum_version_op': None
+                        })
+            
+            if cpe_matches_to_insert:
+                db.session.bulk_insert_mappings(CPEMatch, cpe_matches_to_insert)
+                print(f'   Inserted {len(cpe_matches_to_insert)} CPE matches')
+            else:
+                print(f'   Skipped {len(batch_data["cpe_matches"])} CPE matches (could not parse package names)')
+
+    def extract_package_name_from_cpe(cpe_uri):
+        """Extract package name from CPE URI with Alpine Linux package name mapping"""
+        try:
+            # CPE format: cpe:2.3:part:vendor:product:version:update:edition:language:sw_edition:target_sw:target_hw:other
+            parts = cpe_uri.split(':')
+            if len(parts) >= 5:
+                vendor = parts[3]
+                product = parts[4]
+                
+                # Alpine Linux package name mappings
+                # Many packages in Alpine use just the product name, not vendor-product
+                alpine_package_mappings = {
+                    # Common cases where Alpine uses product name directly
+                    ('debian', 'dpkg'): 'dpkg',
+                    ('gnu', 'bash'): 'bash', 
+                    ('apache', 'httpd'): 'apache2',
+                    ('nginx', 'nginx'): 'nginx',
+                    ('sqlite', 'sqlite'): 'sqlite',
+                    ('python', 'python'): 'python3',
+                    ('nodejs', 'node.js'): 'nodejs',
+                    ('postgresql', 'postgresql'): 'postgresql',
+                    ('mysql', 'mysql'): 'mysql',
+                    ('redis', 'redis'): 'redis',
+                    ('vim', 'vim'): 'vim',
+                    ('git', 'git'): 'git',
+                    ('openssh', 'openssh'): 'openssh',
+                    ('openssl', 'openssl'): 'openssl',
+                    ('curl', 'curl'): 'curl',
+                    ('wget', 'wget'): 'wget',
+                }
+                
+                # Check for specific Alpine mappings first
+                if vendor != '*' and product != '*':
+                    mapping_key = (vendor.lower(), product.lower())
+                    if mapping_key in alpine_package_mappings:
+                        return alpine_package_mappings[mapping_key]
+                    
+                    # For unknown combinations, prefer product name over vendor-product
+                    # This matches Alpine's common pattern
+                    return product
+                elif product != '*':
+                    return product
+                elif vendor != '*':
+                    return vendor
+            return None
+        except Exception:
+            return None
 
     def process_nvd_cve_reference(vuln: Vulnerability, item: dict):
         ref_type = item['source']
@@ -309,19 +428,6 @@ def register(app):
         cve_id = cve.get('id', None)
 
         if not cve_id:
-            return
-        
-        # Filter to only process standard CVE-* format entries
-        # Skip non-CVE entries like xpe.json files
-        if not cve_id.startswith('CVE-'):
-            print(f'I: Skipping non-CVE entry: {cve_id}')
-            return
-        
-        # Additional validation: ensure it follows CVE-YYYY-NNNNN format
-        import re
-        cve_pattern = r'^CVE-\d{4}-\d{4,7}$'
-        if not re.match(cve_pattern, cve_id):
-            print(f'I: Skipping invalid CVE format: {cve_id}')
             return
 
         cve_description = select(
@@ -360,18 +466,9 @@ def register(app):
     def process_nvd_cve_configurations(vuln: Vulnerability, configuration: dict):
         global LANGUAGE_REWRITERS
 
-        if 'nodes' not in configuration or not configuration['nodes']:
-            return
-
-        nodes = configuration['nodes']
-        if not nodes or 'cpeMatch' not in nodes[0]:
-            return
-
-        cpe_match = nodes[0]['cpeMatch']
-
-        for match in cpe_match:
+        def handle_match(match: dict):
             if 'criteria' not in match:
-                continue
+                return
 
             # if vulnerable is not specified, assume True.  maintainer can override
             # by adding a secfixes-override entry in their APKBUILD.
@@ -423,6 +520,20 @@ def register(app):
 
             process_nvd_cve_configuration_item(
                 vuln, source_pkgname, min_version, min_version_op, max_version, max_version_op, vulnerable, cpe_uri)
+
+        def walk_nodes(nodes: list):
+            for node in nodes or []:
+                for m in node.get('cpeMatch', []) or []:
+                    handle_match(m)
+                # Children may contain nested nodes
+                for child in node.get('children', []) or []:
+                    # child is itself a node with potential cpeMatch/children
+                    walk_nodes([child])
+
+        if 'nodes' not in configuration or not configuration['nodes']:
+            return
+
+        walk_nodes(configuration['nodes'])
 
     def process_nvd_cve_configuration_item(vuln: Vulnerability, source_pkgname: str,
                                            min_version: str, min_version_op: str,
