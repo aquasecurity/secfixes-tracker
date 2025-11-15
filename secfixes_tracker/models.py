@@ -61,7 +61,13 @@ class Vulnerability(db.Model):
 
     @property
     def published_states(self):
-        return [state for state in self.states if state.package_version.published]
+        states = [state for state in self.states if state.package_version.published]
+        states = sorted(states, key=lambda state: (
+            state.package_version.repo,
+            state.fixed,
+            state.package_version.version
+        ), reverse=True)
+        return states
 
 
 class VulnerabilityReference(db.Model):
