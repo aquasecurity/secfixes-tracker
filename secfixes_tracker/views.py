@@ -38,7 +38,7 @@ def register(app):
     @accept('text/html')
     def show_branch(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True).all()
+            repo=branch, published=True, succeeded=False).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         title = f'Potentially vulnerable packages in {branch}'
         return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
@@ -47,7 +47,7 @@ def register(app):
     @show_branch.support('application/ld+json')
     def show_branch_json_ld(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True).all()
+            repo=branch, published=True, succeeded=False).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         return show_collection_json_ld(pkgvers)
 
@@ -55,7 +55,7 @@ def register(app):
     @accept('text/html')
     def show_orphaned_vulns_for_branch(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True, maintainer=None).all()
+            repo=branch, published=True, succeeded=False, maintainer=None).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         title = f'Potentially vulnerable orphaned packages in {branch}'
         return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
@@ -64,7 +64,7 @@ def register(app):
     @show_orphaned_vulns_for_branch.support('application/ld+json')
     def show_orphaned_vulns_for_branch_json_ld(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True, maintainer=None).all()
+            repo=branch, published=True, succeeded=False, maintainer=None).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         return show_collection_json_ld(pkgvers)
 
@@ -72,7 +72,7 @@ def register(app):
     @accept('text/html')
     def show_orphaned_for_branch(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True, maintainer=None).all()
+            repo=branch, published=True, succeeded=False, maintainer=None).all()
         title = f'Orphaned packages in {branch}'
         return render_template('branch-orphaned.html', title=title, branch=branch, pkgvers=pkgvers)
 
@@ -80,7 +80,7 @@ def register(app):
     @show_orphaned_for_branch.support('application/ld+json')
     def show_orphaned_for_branch_json_ld(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True, maintainer=None).all()
+            repo=branch, published=True, succeeded=False, maintainer=None).all()
         resp = {
             '@context': f'https://{request.host}/static/context.jsonld',
             'id': f'https://{request.host}{request.path}',
@@ -94,7 +94,7 @@ def register(app):
     def show_maintainer_issues(branch):
         maint = request.args.get('maintainer', None)
 
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True)
+        pkgvers = PackageVersion.query.filter_by(repo=branch, succeeded=False, published=True)
         if maint:
             pkgvers = pkgvers.filter_by(maintainer=maint)
         pkgvers = pkgvers.order_by(PackageVersion.maintainer).all()
@@ -108,7 +108,7 @@ def register(app):
     def show_maintainer_issues_json_ld(branch):
         maint = request.args.get('maintainer', None)
 
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True)
+        pkgvers = PackageVersion.query.filter_by(repo=branch, succeeded=False, published=True)
         if maint:
             pkgvers = pkgvers.filter_by(maintainer=maint)
         pkgvers = pkgvers.order_by(PackageVersion.maintainer).all()

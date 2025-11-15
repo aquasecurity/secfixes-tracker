@@ -3,10 +3,12 @@ import io
 import json
 import requests_mock
 import tarfile
+import textwrap
 import yaml
 
 from unittest.mock import patch, MagicMock
 from secfixes_tracker.models import Vulnerability, Package, PackageVersion, VulnerabilityState, CPEMatch
+from secfixes_tracker import db
 
 
 def test_import_nvd_command(runner):
@@ -291,3 +293,55 @@ def test_import_apkindex_command_invalid_repo(runner, app):
     }
     result = runner.invoke(args=["import-apkindex", "invalid_repo"])
     assert result.exit_code == 1
+
+def test_import_apkindex_command_marks_old_package_as_published_and_succeeded(runner, app):
+    pkg = Package(package_name="succeeded_package")
+    db.session.add(pkg)
+
+    pkg_version0_9 = PackageVersion.find_or_create(pkg, "0.9", "sample_repo")
+    pkg_version0_9.published = True
+    pkg_version0_9.succeeded = False
+    db.session.add(pkg_version0_9)
+
+    db.session.commit()
+
+    apkindex_text = textwrap.dedent("""
+        o:succeeded_package
+        P:succeeded_package
+        V:1.0
+        m:maintainer@example.com
+
+        """).lstrip()
+
+    tarball = create_in_memory_apkindex(apkindex_text)
+
+    app.config['APKINDEX_REPOSITORIES'] = {
+        'sample_repo': 'http://sample_repo_url.com'
+    }
+
+    with requests_mock.Mocker() as mocker:
+        mocker.get('http://sample_repo_url.com', content=tarball.getvalue())
+        result = runner.invoke(args=["import-apkindex", "sample_repo"])
+
+    assert result.exit_code == 0
+
+    pkgver0_9 = (PackageVersion.query
+        .join(PackageVersion.package)
+        .filter(
+            Package.package_name == "succeeded_package", PackageVersion.version == "0.9"
+        ).first()
+    )
+    assert pkgver0_9 is not None
+    assert pkgver0_9.published == True, "Old package version should still be published"
+    assert pkgver0_9.succeeded == True, "Old package version should have been marked as succeeded"
+
+    pkgver1_0 = (PackageVersion.query
+        .join(PackageVersion.package)
+        .filter(
+            Package.package_name == "succeeded_package", PackageVersion.version == "1.0"
+        ).first()
+    )
+
+    assert pkgver1_0 is not None
+    assert pkgver1_0.published == True, "New package version should be published"
+    assert pkgver1_0.succeeded == False, "New package version should not be marked as succeeded"

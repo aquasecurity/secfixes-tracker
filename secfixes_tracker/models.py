@@ -122,13 +122,13 @@ class Package(db.Model):
         return pkg
 
     def published_versions(self):
-        return [pkgver for pkgver in self.versions if pkgver.published]
+        return [pkgver for pkgver in self.versions if pkgver.published and not pkgver.succeeded]
 
     def resolved_vulns(self):
         return list({state.vuln for ver in self.versions for state in ver.states if state.fixed})
 
     def unresolved_vulns(self):
-        return list({state.vuln for ver in self.versions for state in ver.states if not state.fixed and ver.published})
+        return list({state.vuln for ver in self.versions for state in ver.states if not state.fixed and ver.published and not ver.succeeded})
 
     @property
     def excluded(self):
@@ -157,6 +157,7 @@ class PackageVersion(db.Model):
     package = db.relationship('Package', backref='versions')
     repo = db.Column(db.String(80), index=True)
     published = db.Column(db.Boolean, index=True)
+    succeeded = db.Column(db.Boolean, index=True)
     maintainer = db.Column(db.Text, index=True)
 
     def __repr__(self):
