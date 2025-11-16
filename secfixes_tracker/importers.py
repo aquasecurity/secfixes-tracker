@@ -329,6 +329,7 @@ def register(app):
 
         pkgver = PackageVersion.find_or_create(p, pkg['V'], repo)
         pkgver.published = True
+        pkgver.succeeded = False
 
         if origin == pkg['P']:
             pkgver.maintainer = pkg.get('m', None)
@@ -349,6 +350,13 @@ def register(app):
         db.session.commit()
 
     def import_apkindex_payload(repo: str, file):
+        (db.session.query(PackageVersion)
+            .filter_by(repo=repo)
+            .update({PackageVersion.succeeded: True}, synchronize_session=False)
+        )
+
+        db.session.commit()
+
         print(f'I: [{repo}] Processing APKINDEX')
 
         with tarfile.open(mode='r', fileobj=file, debug=3) as tf:

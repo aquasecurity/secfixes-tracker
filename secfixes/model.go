@@ -34,6 +34,7 @@ type PackageVersion struct {
 	PackageVersionID    int  `gorm:"primaryKey;not null;index:ix_package_version_package_version_id"`
 	PackageID           int  `gorm:"not null;index:ix_package_version_package_id"`
 	Published           bool `gorm:"type:boolean;index:ix_package_version_published;check:published IN (0, 1)"`
+	Succeeded           bool `gorm:"type:boolean;index:ix_package_version_succeeded;check:succeeded IN (0, 1);default:false"`
 }
 
 type CPEMatch struct {
