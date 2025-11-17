@@ -1,6 +1,7 @@
 flask
 flask-sqlalchemy
 flask-accept
+natsort
 requests
 PyYAML
 python-dotenv

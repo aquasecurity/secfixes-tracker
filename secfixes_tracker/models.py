@@ -1,3 +1,6 @@
+from natsort import natsorted
+from operator import attrgetter
+
 from . import db
 from .version import APKVersion
 
@@ -61,7 +64,13 @@ class Vulnerability(db.Model):
 
     @property
     def published_states(self):
-        return [state for state in self.states if state.package_version.published]
+        states = [state for state in self.states if state.package_version.published]
+        states = sorted(states, key=lambda state: (
+            state.package_version.repo,
+            state.fixed,
+            state.package_version.version
+        ), reverse=True)
+        return states
 
 
 class VulnerabilityReference(db.Model):
@@ -125,10 +134,18 @@ class Package(db.Model):
         return [pkgver for pkgver in self.versions if pkgver.published and not pkgver.succeeded]
 
     def resolved_vulns(self):
-        return list({state.vuln for ver in self.versions for state in ver.states if state.fixed})
+        return natsorted(
+            {state.vuln for ver in self.versions for state in ver.states if state.fixed},
+            key=attrgetter('cve_id'),
+            reverse=True,
+        )
 
     def unresolved_vulns(self):
-        return list({state.vuln for ver in self.versions for state in ver.states if not state.fixed and ver.published and not ver.succeeded})
+        return natsorted(
+            {state.vuln for ver in self.versions for state in ver.states if not state.fixed and ver.published and not ver.succeeded},
+            key=attrgetter('cve_id'),
+            reverse=True,
+        )
 
     @property
     def excluded(self):
@@ -180,7 +197,7 @@ class PackageVersion(db.Model):
         return False in [state.fixed for state in self.states]
 
     def vulnerabilities(self):
-        return [state.vuln for state in self.states if not state.fixed]
+        return natsorted([state.vuln for state in self.states if not state.fixed], key=attrgetter('cve_id'))
 
     @property
     def json_ld_id(self):
