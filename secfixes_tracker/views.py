@@ -40,6 +40,7 @@ def register(app):
         pkgvers = PackageVersion.query.filter_by(
             repo=branch, published=True, succeeded=False).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
+        pkgvers = sorted(pkgvers, key=lambda pkgver: (pkgver.package.package_name))
         title = f'Potentially vulnerable packages in {branch}'
         return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
 

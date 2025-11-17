@@ -1,3 +1,6 @@
+from natsort import natsorted
+from operator import attrgetter
+
 from . import db
 from .version import APKVersion
 
@@ -186,7 +189,7 @@ class PackageVersion(db.Model):
         return False in [state.fixed for state in self.states]
 
     def vulnerabilities(self):
-        return [state.vuln for state in self.states if not state.fixed]
+        return natsorted([state.vuln for state in self.states if not state.fixed], key=attrgetter('cve_id'))
 
     @property
     def json_ld_id(self):
