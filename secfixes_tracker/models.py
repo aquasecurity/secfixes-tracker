@@ -134,10 +134,18 @@ class Package(db.Model):
         return [pkgver for pkgver in self.versions if pkgver.published and not pkgver.succeeded]
 
     def resolved_vulns(self):
-        return list({state.vuln for ver in self.versions for state in ver.states if state.fixed})
+        return natsorted(
+            {state.vuln for ver in self.versions for state in ver.states if state.fixed},
+            key=attrgetter('cve_id'),
+            reverse=True,
+        )
 
     def unresolved_vulns(self):
-        return list({state.vuln for ver in self.versions for state in ver.states if not state.fixed and ver.published and not ver.succeeded})
+        return natsorted(
+            {state.vuln for ver in self.versions for state in ver.states if not state.fixed and ver.published and not ver.succeeded},
+            key=attrgetter('cve_id'),
+            reverse=True,
+        )
 
     @property
     def excluded(self):
