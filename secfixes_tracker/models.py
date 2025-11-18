@@ -66,6 +66,7 @@ class Vulnerability(db.Model):
     def published_states(self):
         states = [state for state in self.states if state.package_version.published]
         states = sorted(states, key=lambda state: (
+            state.package_version.package.package_name,
             state.package_version.repo,
             state.fixed,
             state.package_version.version
@@ -226,6 +227,13 @@ class VulnerabilityState(db.Model):
     fixed = db.Column(db.Boolean)
     vuln = db.relationship('Vulnerability', backref='states')
     package_version = db.relationship('PackageVersion', backref='states')
+
+    def state(self):
+        if self.fixed:
+            return "fixed"
+        if self.package_version.succeeded:
+            return "succeeded"
+        return "unfixed"
 
     def __repr__(self):
         return f'<VulnerabilityState {self.package_version} fixed={self.fixed}>'
