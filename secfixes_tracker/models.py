@@ -66,6 +66,7 @@ class Vulnerability(db.Model):
     def published_states(self):
         states = [state for state in self.states if state.package_version.published]
         states = sorted(states, key=lambda state: (
+            state.package_version.package.package_name,
             state.package_version.repo,
             state.fixed,
             state.package_version.version
