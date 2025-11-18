@@ -228,6 +228,13 @@ class VulnerabilityState(db.Model):
     vuln = db.relationship('Vulnerability', backref='states')
     package_version = db.relationship('PackageVersion', backref='states')
 
+    def state(self):
+        if self.fixed:
+            return "fixed"
+        if self.package_version.succeeded:
+            return "succeeded"
+        return "unfixed"
+
     def __repr__(self):
         return f'<VulnerabilityState {self.package_version} fixed={self.fixed}>'
 
