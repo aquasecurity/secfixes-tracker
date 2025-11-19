@@ -136,7 +136,7 @@ class Package(db.Model):
 
     def resolved_vulns(self):
         return natsorted(
-            {state.vuln for ver in self.versions if all(state.fixed and not state.version.succeeded for state in ver.states) for state in ver.states},
+            {state.vuln for ver in self.versions if all(state.fixed and not state.package_version.succeeded for state in ver.states) for state in ver.states},
             key=attrgetter('cve_id'),
             reverse=True,
         )
