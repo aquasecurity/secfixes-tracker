@@ -324,6 +324,8 @@ class CPEMatch(db.Model):
                 return False
             elif self.minimum_version_op == '>' and pv <= minv:
                 return False
+            elif self.minimum_version_op == '==' and pv == minv:
+                return True
 
         # If the maximum version is unbounded, assume we're vulnerable.
         if not self.maximum_version:
