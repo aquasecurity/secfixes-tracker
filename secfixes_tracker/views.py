@@ -3,7 +3,7 @@ from flask_accept import accept
 
 
 from . import db
-from .models import Vulnerability, PackageVersion, Package
+from .models import VulnerabilityState, Vulnerability, PackageVersion, Package
 
 
 def register(app):
@@ -148,3 +148,21 @@ def register(app):
         pv = PackageVersion.query.filter_by(
             package_id=p.package_id, version=version).first_or_404()
         return jsonify(pv.to_json_ld())
+
+    @app.route('/recent')
+    @accept('text/html')
+    def show_recent_cves():
+        query = (
+            db.select(Vulnerability, VulnerabilityState, PackageVersion, Package)
+                .join(Vulnerability, Vulnerability.vuln_id == VulnerabilityState.vuln_id)
+                .join(VulnerabilityState.package_version)
+                .join(PackageVersion.package)
+                .where(VulnerabilityState.fixed == 0)
+                .where(PackageVersion.succeeded == 0)
+                .group_by(Vulnerability.cve_id)
+                .group_by(Package.package_id)
+                .order_by(Vulnerability.vuln_id.desc())
+                .limit(50)
+        )
+        rows = db.session.execute(query)
+        return render_template('recent.html', rows=rows)

@@ -16,6 +16,12 @@ corrected secfixes data is published, it should take less than 24 hours for the
 tracker to update.  If there are still problems, please ask in <code>#alpine-devel</code>
 on IRC.</p>
 
+<h2>Recent vulnerabilities</h2>
+
+<ul>
+<li><a href="{{ url_for('show_recent_cves') }}">New potentially vulnerable vulnerabilities with affected packages</a></li>
+</ul>
+
 {% for branch, _ in config['SECFIXES_REPOSITORIES'].items() %}
 <h2>{{ branch }}</h2>
 

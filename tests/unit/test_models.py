@@ -171,7 +171,7 @@ def test_package_version_create(db):
 
     retrieved_pkgver = PackageVersion.query.filter_by(version="1.0.0").first()
     assert retrieved_pkgver is not None
-    assert repr(retrieved_pkgver) == "<PackageVersion testpkg-1.0.0>"
+    assert repr(retrieved_pkgver) == "<PackageVersion testpkg-1.0.0 repo=main published=None succeeded=None>"
     assert retrieved_pkgver.repo == "main"
 
 
