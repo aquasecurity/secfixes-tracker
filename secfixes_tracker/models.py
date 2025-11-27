@@ -179,7 +179,7 @@ class PackageVersion(db.Model):
     maintainer = db.Column(db.Text, index=True)
 
     def __repr__(self):
-        return f'<PackageVersion {self.package.package_name}-{self.version}>'
+        return f'<PackageVersion {self.package.package_name}-{self.version} repo={self.repo} published={self.published} succeeded={self.succeeded}>'
 
     @classmethod
     def find_or_create(cls, package: Package, version: str, repo: str):
