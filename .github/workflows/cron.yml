@@ -17,7 +17,22 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v2
-        
+
+      - name: Install system dependencies
+        run: |
+          apk add --no-cache alpine-sdk gcc musl-dev libc-dev apk-tools libapk curl
+          # Find actual libapk file and create unversioned symlink for Python ctypes
+          LIBAPK_FILE=$(find /usr/lib /lib -name "libapk.so.*" 2>/dev/null | head -1)
+          if [ -n "$LIBAPK_FILE" ]; then
+            LIBAPK_DIR=$(dirname "$LIBAPK_FILE")
+            ln -sf "$LIBAPK_FILE" "$LIBAPK_DIR/libapk.so"
+            echo "Created libapk.so symlink: $LIBAPK_DIR/libapk.so -> $LIBAPK_FILE"
+          else
+            echo "ERROR: No libapk.so.* file found!"
+            exit 1
+          fi
+          # Set library path for Python ctypes
+          echo "LD_LIBRARY_PATH=/usr/lib:/lib" >> $GITHUB_ENV
       - name: Update Alpine versions dynamically
         run: |
           echo "=== Discovering Alpine versions from secdb ==="
@@ -41,22 +56,6 @@ jobs:
 
           echo "=== Updated alpine_versions ==="
           grep "^alpine_versions" secfixes_tracker/application.cfg
-
-      - name: Install system dependencies
-        run: |
-          apk add --no-cache alpine-sdk gcc musl-dev libc-dev apk-tools libapk
-          # Find actual libapk file and create unversioned symlink for Python ctypes
-          LIBAPK_FILE=$(find /usr/lib /lib -name "libapk.so.*" 2>/dev/null | head -1)
-          if [ -n "$LIBAPK_FILE" ]; then
-            LIBAPK_DIR=$(dirname "$LIBAPK_FILE")
-            ln -sf "$LIBAPK_FILE" "$LIBAPK_DIR/libapk.so"
-            echo "Created libapk.so symlink: $LIBAPK_DIR/libapk.so -> $LIBAPK_FILE"
-          else
-            echo "ERROR: No libapk.so.* file found!"
-            exit 1
-          fi
-          # Set library path for Python ctypes
-          echo "LD_LIBRARY_PATH=/usr/lib:/lib" >> $GITHUB_ENV
 
       - name: Install Python dependencies
         run: pip3 install -r requirements.txt
