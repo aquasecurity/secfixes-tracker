@@ -33,29 +33,9 @@ jobs:
           fi
           # Set library path for Python ctypes
           echo "LD_LIBRARY_PATH=/usr/lib:/lib" >> $GITHUB_ENV
+
       - name: Update Alpine versions dynamically
-        run: |
-          echo "=== Discovering Alpine versions from secdb ==="
-          
-          ALPINE_VERSIONS=$(curl -fsSL https://secdb.alpinelinux.org/ \
-            | grep -o 'secfixes-[0-9]\+\.[0-9]\+\.json' \
-            | sed 's/secfixes-\(.*\)\.json/\1/' \
-            | sort -V \
-            | tr '\n' ',' | sed 's/,$//')
-
-          if [ -z "$ALPINE_VERSIONS" ]; then
-            echo "ERROR: Failed to discover Alpine versions"
-            exit 1
-          fi
-
-          echo "Discovered Alpine versions: $ALPINE_VERSIONS"
-
-          echo "=== Updating application.cfg ==="
-          sed -i "s/^alpine_versions *= *.*/alpine_versions = ${ALPINE_VERSIONS}/" \
-            secfixes_tracker/application.cfg
-
-          echo "=== Updated alpine_versions ==="
-          grep "^alpine_versions" secfixes_tracker/application.cfg
+        run: python3 scripts/update_alpine_config.py
 
       - name: Install Python dependencies
         run: pip3 install -r requirements.txt
