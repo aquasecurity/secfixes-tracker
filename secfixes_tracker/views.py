@@ -3,7 +3,7 @@ from flask_accept import accept
 
 
 from . import db
-from .models import Vulnerability, PackageVersion, Package
+from .models import VulnerabilityState, Vulnerability, PackageVersion, Package
 
 
 def register(app):
@@ -38,8 +38,9 @@ def register(app):
     @accept('text/html')
     def show_branch(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True).all()
+            repo=branch, published=True, succeeded=False).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
+        pkgvers = sorted(pkgvers, key=lambda pkgver: (pkgver.package.package_name))
         title = f'Potentially vulnerable packages in {branch}'
         return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
 
@@ -47,7 +48,7 @@ def register(app):
     @show_branch.support('application/ld+json')
     def show_branch_json_ld(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True).all()
+            repo=branch, published=True, succeeded=False).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         return show_collection_json_ld(pkgvers)
 
@@ -55,7 +56,7 @@ def register(app):
     @accept('text/html')
     def show_orphaned_vulns_for_branch(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True, maintainer=None).all()
+            repo=branch, published=True, succeeded=False, maintainer=None).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         title = f'Potentially vulnerable orphaned packages in {branch}'
         return render_template('branch.html', title=title, branch=branch, pkgvers=pkgvers)
@@ -64,7 +65,7 @@ def register(app):
     @show_orphaned_vulns_for_branch.support('application/ld+json')
     def show_orphaned_vulns_for_branch_json_ld(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True, maintainer=None).all()
+            repo=branch, published=True, succeeded=False, maintainer=None).all()
         pkgvers = [pkgver for pkgver in pkgvers if pkgver.is_vulnerable()]
         return show_collection_json_ld(pkgvers)
 
@@ -72,7 +73,7 @@ def register(app):
     @accept('text/html')
     def show_orphaned_for_branch(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True, maintainer=None).all()
+            repo=branch, published=True, succeeded=False, maintainer=None).all()
         title = f'Orphaned packages in {branch}'
         return render_template('branch-orphaned.html', title=title, branch=branch, pkgvers=pkgvers)
 
@@ -80,7 +81,7 @@ def register(app):
     @show_orphaned_for_branch.support('application/ld+json')
     def show_orphaned_for_branch_json_ld(branch):
         pkgvers = PackageVersion.query.filter_by(
-            repo=branch, published=True, maintainer=None).all()
+            repo=branch, published=True, succeeded=False, maintainer=None).all()
         resp = {
             '@context': f'https://{request.host}/static/context.jsonld',
             'id': f'https://{request.host}{request.path}',
@@ -94,7 +95,7 @@ def register(app):
     def show_maintainer_issues(branch):
         maint = request.args.get('maintainer', None)
 
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True)
+        pkgvers = PackageVersion.query.filter_by(repo=branch, succeeded=False, published=True)
         if maint:
             pkgvers = pkgvers.filter_by(maintainer=maint)
         pkgvers = pkgvers.order_by(PackageVersion.maintainer).all()
@@ -108,7 +109,7 @@ def register(app):
     def show_maintainer_issues_json_ld(branch):
         maint = request.args.get('maintainer', None)
 
-        pkgvers = PackageVersion.query.filter_by(repo=branch, published=True)
+        pkgvers = PackageVersion.query.filter_by(repo=branch, succeeded=False, published=True)
         if maint:
             pkgvers = pkgvers.filter_by(maintainer=maint)
         pkgvers = pkgvers.order_by(PackageVersion.maintainer).all()
@@ -148,78 +149,20 @@ def register(app):
             package_id=p.package_id, version=version).first_or_404()
         return jsonify(pv.to_json_ld())
 
-    @app.cli.command('export', help='Export individual CVE JSON files to data directory.')
-    def export_data():
-        import os
-        import json
-        from .models import Vulnerability, Package, PackageVersion, VulnerabilityState
-        from flask import current_app
-        
-        # Create data directory if it doesn't exist
-        os.makedirs('data', exist_ok=True)
-        
-        # Create a mock request context for JSON-LD generation
-        with current_app.test_request_context():
-            # Export only Alpine-relevant CVEs (CVEs with vulnerability states)
-            # This filters out the 292k+ CVEs to only those that affect Alpine packages
-            print('I: Filtering CVEs to only Alpine-relevant vulnerabilities...')
-            
-            # Get all CVEs that have vulnerability states (i.e., affect Alpine packages)
-            alpine_vuln_ids = db.session.query(VulnerabilityState.vuln_id).distinct().all()
-            alpine_vuln_ids = [v[0] for v in alpine_vuln_ids]
-            
-            print(f'I: Found {len(alpine_vuln_ids)} Alpine-relevant CVEs out of {Vulnerability.query.count()} total CVEs')
-            
-            # Export individual CVE files (only Alpine-relevant with valid CVE IDs and non-empty states)
-            vulnerabilities = Vulnerability.query.filter(Vulnerability.vuln_id.in_(alpine_vuln_ids)).all()
-            
-            exported_count = 0
-            skipped_count = 0
-            empty_state_count = 0
-            invalid_cve_count = 0
-            
-            for vuln in vulnerabilities:
-                # Extract CVE ID from the vulnerability
-                cve_id = vuln.cve_id
-                
-                # Skip invalid CVE IDs (like CVE-46838, not a valid CVE format)
-                if not cve_id or not cve_id.startswith('CVE-'):
-                    invalid_cve_count += 1
-                    if cve_id:
-                        print(f'I: Skipping invalid CVE ID: {cve_id}')
-                    continue
-                
-                # Validate CVE format (CVE-YYYY-NNNNN)
-                import re
-                if not re.match(r'^CVE-\d{4}-\d{4,7}$', cve_id):
-                    invalid_cve_count += 1
-                    print(f'I: Skipping invalid CVE format: {cve_id}')
-                    continue
-                
-                # Create CVE data to check if it has non-empty states
-                cve_data = vuln.to_json()
-                
-                # Only export if CVE has non-empty state array (Alpine vulnerability states)
-                if cve_data.get('state') and len(cve_data['state']) > 0:
-                    # Create individual CVE file
-                    filename = f"data/{cve_id}.json"
-                    with open(filename, 'w') as f:
-                        json.dump(cve_data, f, indent=2)
-                    exported_count += 1
-                else:
-                    # Skip CVEs with empty states (no Alpine relevance)
-                    empty_state_count += 1
-                    print(f'I: Skipping CVE with empty states: {cve_id}')
-            
-            # Note: Consolidated export files (vulnerabilities.json, packages.json, etc.) 
-            # are not exported as they're not used downstream in vuln-list-update
-        
-        print(f"I: Export completed successfully!")
-        print(f"I: Exported {exported_count} CVE files (with Alpine states)")
-        if empty_state_count > 0:
-            print(f"I: Skipped {empty_state_count} CVEs with empty states (no Alpine relevance)")
-        if invalid_cve_count > 0:
-            print(f"I: Skipped {invalid_cve_count} invalid CVE IDs (invalid format)")
-        print(f"I: Total CVEs in database: {Vulnerability.query.count()}")
-        print(f"I: Alpine-relevant vulnerabilities found: {len(alpine_vuln_ids)}")
-        print(f"I: CVEs with non-empty states exported: {exported_count}")
+    @app.route('/recent')
+    @accept('text/html')
+    def show_recent_cves():
+        query = (
+            db.select(Vulnerability, VulnerabilityState, PackageVersion, Package)
+                .join(Vulnerability, Vulnerability.vuln_id == VulnerabilityState.vuln_id)
+                .join(VulnerabilityState.package_version)
+                .join(PackageVersion.package)
+                .where(VulnerabilityState.fixed == 0)
+                .where(PackageVersion.succeeded == 0)
+                .group_by(Vulnerability.cve_id)
+                .group_by(Package.package_id)
+                .order_by(Vulnerability.vuln_id.desc())
+                .limit(50)
+        )
+        rows = db.session.execute(query)
+        return render_template('recent.html', rows=rows)

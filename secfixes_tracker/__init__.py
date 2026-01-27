@@ -15,7 +15,7 @@ def create_app(testing=False):
     else:
         app.config.from_pyfile(os.environ.get('SECFIXES_TRACKER_CONFIG', None), silent=False)
 
-    app.config["SECFIXES_TRACKER_VERSION"] = "0.7.1"
+    app.config["SECFIXES_TRACKER_VERSION"] = "0.9.1"
 
     db.init_app(app)
     

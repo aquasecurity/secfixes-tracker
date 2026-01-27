@@ -78,3 +78,7 @@ footer {
   background: #ecc;
   color: #611;
 }
+
+.state-succeeded {
+  background: #fffddd;
+}

@@ -1,7 +1,7 @@
 # tests/unit/test_models.py
 
 import pytest
-from secfixes_tracker.models import Vulnerability, VulnerabilityReference, Package, PackageVersion
+from secfixes_tracker.models import Vulnerability, VulnerabilityReference, Package, PackageVersion, VulnerabilityState
 
 
 def test_vulnerability_create(db):
@@ -171,7 +171,7 @@ def test_package_version_create(db):
 
     retrieved_pkgver = PackageVersion.query.filter_by(version="1.0.0").first()
     assert retrieved_pkgver is not None
-    assert repr(retrieved_pkgver) == "<PackageVersion testpkg-1.0.0>"
+    assert repr(retrieved_pkgver) == "<PackageVersion testpkg-1.0.0 repo=main published=None succeeded=None>"
     assert retrieved_pkgver.repo == "main"
 
 
@@ -181,3 +181,24 @@ def test_package_create(db):
     db.session.commit()
 
     assert pkg.excluded is not None
+
+def test_package_unresolved_vulns_with_succeeded_pkg(db):
+    pkg = Package(package_name="testpkg")
+    db.session.add(pkg)
+
+    vuln = Vulnerability(cve_id="CVE-0000-1234")
+    db.session.add(vuln)
+
+    db.session.commit()
+
+    pkgver0_9 = PackageVersion(package_id=pkg.package_id, version="0.9", published=True, succeeded=True)
+    pkgver1_0 = PackageVersion(package_id=pkg.package_id, version="1.0", published=True, succeeded=False)
+
+    db.session.commit()
+
+    vuln_state0_9 = VulnerabilityState(vuln_id=vuln.vuln_id, package_version_id=pkgver0_9.package_version_id, fixed=False)
+    vuln_state1_0 = VulnerabilityState(vuln_id=vuln.vuln_id, package_version_id=pkgver1_0.package_version_id, fixed=True)
+
+    db.session.commit()
+
+    assert len(pkg.unresolved_vulns()) == 0

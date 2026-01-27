@@ -309,8 +309,16 @@ func ProcessCveAffectedVersion(
 	switch {
 	case cveContainer.ProviderMetadata.ShortName == "GitHub_M" && version.LessThan.IsNone() && version.LessThanOrEqual.IsNone():
 		validVersion = processVersionGithub(version, &minVersion, &maxVersion, &minVersionOp, &maxVersionOp)
+	case version.VersionType.TakeOr("") == "python",
+		version.VersionType.TakeOr("") == "semver":
+
+		validVersion = processVersionSemver(version, &minVersion, &maxVersion, &minVersionOp, &maxVersionOp)
 	default:
-		validVersion = processVersionStandard(version, &minVersion, &maxVersion, &minVersionOp, &maxVersionOp)
+		// We don't know a lot about the version format. Leave the default '=='
+		// operators. That would allow us to at least manually update the cpe
+		// match
+		minVersion = string(version.Version)
+		validVersion = true
 	}
 	if !validVersion {
 		return o.None[secfixes.CPEMatch](), nil
@@ -377,7 +385,7 @@ func ProcessCveAffectedVersion(
 	return o.Some(cpeMatch), nil
 }
 
-func processVersionStandard(
+func processVersionSemver(
 	version vulnrich.Version,
 	minVersion *string,
 	maxVersion *o.Option[string],

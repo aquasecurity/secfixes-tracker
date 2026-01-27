@@ -1,3 +1,6 @@
+from natsort import natsorted
+from operator import attrgetter
+
 from . import db
 from .version import APKVersion
 
@@ -76,7 +79,14 @@ class Vulnerability(db.Model):
 
     @property
     def published_states(self):
-        return [state for state in self.states if state.package_version.published]
+        states = [state for state in self.states if state.package_version.published]
+        states = natsorted(states, key=lambda state: (
+            state.package_version.package.package_name,
+            state.package_version.repo,
+            state.fixed,
+            state.package_version.version
+        ), reverse=True)
+        return states
 
 
 class VulnerabilityReference(db.Model):
@@ -144,7 +154,7 @@ class Package(db.Model):
         return pkg
 
     def published_versions(self):
-        return [pkgver for pkgver in self.versions if pkgver.published]
+        return [pkgver for pkgver in self.versions if pkgver.published and not pkgver.succeeded]
 
     def to_json(self):
         return {
@@ -154,10 +164,18 @@ class Package(db.Model):
         }
 
     def resolved_vulns(self):
-        return list({state.vuln for ver in self.versions for state in ver.states if state.fixed})
+        return natsorted(
+            {state.vuln for ver in self.versions if all(state.fixed and not state.package_version.succeeded for state in ver.states) for state in ver.states},
+            key=attrgetter('cve_id'),
+            reverse=True,
+        )
 
     def unresolved_vulns(self):
-        return list({state.vuln for ver in self.versions for state in ver.states if not state.fixed and ver.published})
+        return natsorted(
+            {state.vuln for ver in self.versions for state in ver.states if not state.fixed and ver.published and not ver.succeeded},
+            key=attrgetter('cve_id'),
+            reverse=True,
+        )
 
     @property
     def excluded(self):
@@ -186,10 +204,11 @@ class PackageVersion(db.Model):
     package = db.relationship('Package', backref='versions')
     repo = db.Column(db.String(80), index=True)
     published = db.Column(db.Boolean, index=True)
+    succeeded = db.Column(db.Boolean, index=True)
     maintainer = db.Column(db.Text, index=True)
 
     def __repr__(self):
-        return f'<PackageVersion {self.package.package_name}-{self.version}>'
+        return f'<PackageVersion {self.package.package_name}-{self.version} repo={self.repo} published={self.published} succeeded={self.succeeded}>'
 
     @classmethod
     def find_or_create(cls, package: Package, version: str, repo: str):
@@ -208,7 +227,7 @@ class PackageVersion(db.Model):
         return False in [state.fixed for state in self.states]
 
     def vulnerabilities(self):
-        return [state.vuln for state in self.states if not state.fixed]
+        return natsorted([state.vuln for state in self.states if not state.fixed], key=attrgetter('cve_id'))
 
     @property
     def json_ld_id(self):
@@ -248,6 +267,13 @@ class VulnerabilityState(db.Model):
     fixed = db.Column(db.Boolean)
     vuln = db.relationship('Vulnerability', backref='states')
     package_version = db.relationship('PackageVersion', backref='states')
+
+    def state(self):
+        if self.fixed:
+            return "fixed"
+        if self.package_version.succeeded:
+            return "succeeded"
+        return "unfixed"
 
     def __repr__(self):
         return f'<VulnerabilityState {self.package_version} fixed={self.fixed}>'
@@ -349,6 +375,8 @@ class CPEMatch(db.Model):
                 return False
             elif self.minimum_version_op == '>' and pv <= minv:
                 return False
+            elif self.minimum_version_op == '==' and pv == minv:
+                return True
 
         # If the maximum version is unbounded, assume we're vulnerable.
         if not self.maximum_version:

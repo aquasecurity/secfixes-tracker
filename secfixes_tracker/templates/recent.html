@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Recent vulnerabilities{% endblock %}
+
+{% block body %}
+
+<h1>Recent vulnerabilities</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>CVE</th>
+      <th>NVD Severity</th>
+      <th>Package</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    {% set vuln = row.Vulnerability %}
+    {% set package = row.Package %}
+    <tr>
+      <td><a href="{{ url_for('show_vulnerability', cve_id=vuln.cve_id) }}">{{ vuln.cve_id }}</a></td>
+      <td>{{ vuln.to_nvd_severity() }}</td>
+      <td><a href="{{ url_for('show_package', package=package.package_name) }}">{{ package.package_name }}</a></td>
+      <td>{{ vuln.description | truncate(100) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
