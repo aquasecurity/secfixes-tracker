@@ -17,10 +17,34 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v2
+        
+      - name: Update Alpine versions dynamically
+        run: |
+          echo "=== Discovering Alpine versions from secdb ==="
+          
+          ALPINE_VERSIONS=$(curl -fsSL https://secdb.alpinelinux.org/ \
+            | grep -o 'secfixes-[0-9]\+\.[0-9]\+\.json' \
+            | sed 's/secfixes-\(.*\)\.json/\1/' \
+            | sort -V \
+            | tr '\n' ',' | sed 's/,$//')
+
+          if [ -z "$ALPINE_VERSIONS" ]; then
+            echo "ERROR: Failed to discover Alpine versions"
+            exit 1
+          fi
+
+          echo "Discovered Alpine versions: $ALPINE_VERSIONS"
+
+          echo "=== Updating application.cfg ==="
+          sed -i "s/^alpine_versions *= *.*/alpine_versions = ${ALPINE_VERSIONS}/" \
+            secfixes_tracker/application.cfg
+
+          echo "=== Updated alpine_versions ==="
+          grep "^alpine_versions" secfixes_tracker/application.cfg
 
       - name: Install system dependencies
         run: |
-          apk add --no-cache alpine-sdk gcc musl-dev libc-dev apk-tools
+          apk add --no-cache alpine-sdk gcc musl-dev libc-dev apk-tools libapk
           # Find actual libapk file and create unversioned symlink for Python ctypes
           LIBAPK_FILE=$(find /usr/lib /lib -name "libapk.so.*" 2>/dev/null | head -1)
           if [ -n "$LIBAPK_FILE" ]; then
