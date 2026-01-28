@@ -20,7 +20,7 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          apk add --no-cache alpine-sdk gcc musl-dev libc-dev apk-tools
+          apk add --no-cache alpine-sdk gcc musl-dev libc-dev apk-tools curl
           # Find actual libapk file and create unversioned symlink for Python ctypes
           LIBAPK_FILE=$(find /usr/lib /lib -name "libapk.so.*" 2>/dev/null | head -1)
           if [ -n "$LIBAPK_FILE" ]; then
@@ -33,6 +33,9 @@ jobs:
           fi
           # Set library path for Python ctypes
           echo "LD_LIBRARY_PATH=/usr/lib:/lib" >> $GITHUB_ENV
+
+      - name: Update Alpine versions dynamically
+        run: python3 scripts/update_alpine_config.py
 
       - name: Install Python dependencies
         run: pip3 install -r requirements.txt
