@@ -170,11 +170,18 @@ def register(app):
     def export_data():
         import os
         import json
-        from .models import Vulnerability, Package, PackageVersion, VulnerabilityState
+        import re
+        from .models import Vulnerability, VulnerabilityState
+        from .importers import get_rejected_cve_ids
         from flask import current_app
         
         # Create data directory if it doesn't exist
         os.makedirs('data', exist_ok=True)
+        
+        # Single point: apply security-rejections so rejected CVEs are not published
+        rejected = get_rejected_cve_ids(current_app)
+        if rejected:
+            print(f'I: Excluding {len(rejected)} CVEs from security-rejections (not published)')
         
         # Create a mock request context for JSON-LD generation
         with current_app.test_request_context():
@@ -195,10 +202,16 @@ def register(app):
             skipped_count = 0
             empty_state_count = 0
             invalid_cve_count = 0
+            rejected_count = 0
             
             for vuln in vulnerabilities:
                 # Extract CVE ID from the vulnerability
                 cve_id = vuln.cve_id
+                
+                # Skip CVEs in security-rejections (single point: do not publish)
+                if cve_id and cve_id in rejected:
+                    rejected_count += 1
+                    continue
                 
                 # Skip invalid CVE IDs (like CVE-46838, not a valid CVE format)
                 if not cve_id or not cve_id.startswith('CVE-'):
@@ -208,7 +221,6 @@ def register(app):
                     continue
                 
                 # Validate CVE format (CVE-YYYY-NNNNN)
-                import re
                 if not re.match(r'^CVE-\d{4}-\d{4,7}$', cve_id):
                     invalid_cve_count += 1
                     print(f'I: Skipping invalid CVE format: {cve_id}')
@@ -234,6 +246,8 @@ def register(app):
         
         print(f"I: Export completed successfully!")
         print(f"I: Exported {exported_count} CVE files (with Alpine states)")
+        if rejected_count > 0:
+            print(f"I: Excluded {rejected_count} CVEs from security-rejections")
         if empty_state_count > 0:
             print(f"I: Skipped {empty_state_count} CVEs with empty states (no Alpine relevance)")
         if invalid_cve_count > 0:
