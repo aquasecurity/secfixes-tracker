@@ -36,6 +36,27 @@ LANGUAGE_REWRITERS = {
 }
 
 
+def get_rejected_cve_ids(app):
+    """Fetch security-rejections feeds and return the set of CVE IDs to ignore (no process, no store)."""
+    repositories = app.config.get('SECURITY_REJECTIONS', {})
+    if not repositories:
+        return set()
+    rejected = set()
+    for uri in repositories.values():
+        try:
+            r = requests.get(uri, timeout=30)
+            r.raise_for_status()
+            feed = yaml.load(r.content, Loader=yaml.SafeLoader)
+            for cves in feed.values():
+                if isinstance(cves, list):
+                    rejected.update(c for c in cves if isinstance(c, str))
+                elif isinstance(cves, str):
+                    rejected.add(cves)
+        except Exception as e:
+            print(f'W: Failed to fetch security rejections from {uri}: {e}')
+    return rejected
+
+
 def register(app):
     
     @app.cli.command('import-nvd', help='Import a NVD feed.')
