@@ -25,6 +25,7 @@ def rewrite_perl(x): return 'perl-' + x.replace('_',
 
 def rewrite_lua(x): return 'lua-' + x.replace('_', '-').lower()
 def rewrite_vscode(x): return 'vscode-' + x.replace('_', '-').lower()
+def rewrite_nodejs(x): return 'node-' + x.replace('_', '-').lower()
 
 
 LANGUAGE_REWRITERS = {
@@ -33,6 +34,7 @@ LANGUAGE_REWRITERS = {
     'perl': rewrite_perl,
     'lua': rewrite_lua,
     'visual_studio_code': rewrite_vscode,
+    'node.js': rewrite_nodejs,
 }
 
 
