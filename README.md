@@ -70,27 +70,15 @@ tasks on an hourly basis.
 
 ## CPE rewriters
 
-The config allows defining a set of custom rewriters.  These rewriters should be
-defined as `lambda` functions which take a source package name as input.  They are
-matched as either `cpe_vendor:source_pkgname` or `cpe_vendor:*` as a catch all.
+Rewriter rules are synced from [Alpine infra/docker/secfixes-tracker](https://gitlab.alpinelinux.org/alpine/infra/docker/secfixes-tracker). See `config/README.md` for file layout.
 
-For example:
+The Flask app uses Python `CUSTOM_REWRITERS` in `secfixes_tracker/application.cfg` (mirrored in `config/prod.settings.py`). Rules are `lambda` functions matched as `cpe_vendor:source_pkgname` or `cpe_vendor:*`.
 
-```
-CUSTOM_REWRITERS = {
-    'jenkins:*': lambda x: 'jenkins',
-}
-```
-
-Will define a rewriter which matches any package published by the 'jenkins' CPE
-vendor and outputs 'jenkins' (as all jenkins components are in the `jenkins` source
-package in Alpine).
+`PACKAGE_EXCLUSIONS` in the same file excludes packages that accumulate false-positive CVEs (e.g. `bridge`).
 
 ### Secfixes-cli
 
-`secfixes-cli` has a new rewriting enginge that offers more flexibility. The
-rules are based in [expr](https://expr-lang.org/docs/getting-started), and
-provided through `application.toml`.
+`secfixes-cli` uses expr-based rules in `config/application.toml` (mirrored in `config/prod.application.toml`). Rules are based on [expr](https://expr-lang.org/docs/getting-started).
 
 An example rule looks like:
 

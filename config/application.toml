@@ -1,0 +1,79 @@
+# Active secfixes-cli config (synced from config/prod.application.toml).
+db_path = "application.db"
+
+[importers.vulnrich]
+lookup_period = "168h"
+
+[[rewriters]]
+predicate = "vendor == 'cebe' && product == 'markdown'"
+rewrite_rule = "'cebe-markdown'"
+
+[[rewriters]]
+predicate = "vendor == 'google' && product == 'chrome'"
+rewrite_rule = "'chromium'"
+
+[[rewriters]]
+predicate = "product == 'zabbix_server'"
+rewrite_rule = "'zabbix'"
+
+[[rewriters]]
+predicate = "vendor == 'home-assistant' && product == 'supervisor'"
+rewrite_rule = "'home-assistant-supervisor'"
+
+[[rewriters]]
+predicate = "vendor == 'foxitsoftware'"
+rewrite_rule = "product | fmt('foxitsoftware-%s')"
+
+[[rewriters]]
+predicate = "vendor == 'ctrip' && product == 'apollo'"
+rewrite_rule = "'ctrip-apollo'"
+
+[[rewriters]]
+predicate = "vendor == 'python' && product == 'urllib3'"
+rewrite_rule = "'py3-urllib3'"
+
+[[rewriters]]
+predicate = "vendor == 'isaacs' && product == 'tar'"
+rewrite_rule = "'node-tar'"
+
+# Normalize all names to make it more likely to match
+[[rewriters]]
+predicate = "true"
+rewrite_rule = "product | replace('_', '-') | replace(' ', '-') | lower()"
+
+[[rewriters]]
+field = "vendor"
+predicate = "true"
+rewrite_rule = "vendor | lower()"
+
+[[rewriters]]
+predicate = "target_sw == 'python'"
+rewrite_rule = "product | fmt('py3-%s')"
+
+[[rewriters]]
+predicate = "target_sw == 'ruby'"
+rewrite_rule = "product | fmt('ruby-%s')"
+
+[[rewriters]]
+predicate = "target_sw == 'wordpress'"
+rewrite_rule = "product | fmt('wordpress-%s')"
+
+[[rewriters]]
+predicate = "target_sw == 'node.js'"
+rewrite_rule = "product | fmt('node-%s')"
+
+[[rewriters]]
+predicate = "vendor == 'adobe'"
+rewrite_rule = "product | fmt('adobe-%s')"
+
+[[rewriters]]
+predicate = "vendor == 'cloudflare'"
+rewrite_rule = "product | fmt('cloudflare-%s')"
+
+[[rewriters]]
+predicate = "target_sw == 'go'"
+rewrite_rule = "product | fmt('go-%s')"
+
+[[rewriters]]
+predicate = "vendor == 'apache' && product != 'apache'"
+rewrite_rule = "product | fmt('apache-%s')"
